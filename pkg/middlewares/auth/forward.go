@@ -107,7 +107,7 @@ func (fa *forwardAuth) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 
 	// get request body if forwarding is enabled
 	if fa.forwardBody == true {
-	    reqBody, readErr := ioutil.ReadAll(req.Body)
+	    reqBody, readErr := io.ReadAll(req.Body)
 	    if readErr != nil {
 		logMessage := fmt.Sprintf("Error reading request body %s. Cause: %s", fa.address, readErr)
 		logger.Debug(logMessage)
@@ -118,7 +118,7 @@ func (fa *forwardAuth) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	    }
 	    defer req.Body.Close()
 
-	    req.Body = ioutil.NopCloser(bytes.NewBuffer(reqBody))
+	    req.Body = io.NopCloser(bytes.NewBuffer(reqBody))
 	    forwardReq, err = http.NewRequest(http.MethodGet, fa.address, bytes.NewReader(reqBody))
 	} else {
 	    forwardReq, err = http.NewRequest(http.MethodGet, fa.address, nil)
