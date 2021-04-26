@@ -41,8 +41,8 @@ Pointing Traefik at your orchestrator should be the _only_ configuration step yo
 
 Configuration sample:
 
-# Forward authentication to example.com
 ```toml
+# Forward authentication to example.com
 [http.middlewares]
   [http.middlewares.test-auth.forwardAuth]
     address = "https://example.com/auth"
@@ -52,7 +52,6 @@ Configuration sample:
 ### Private plugin support
 
 To activate the private plugin, you must specify `private` in the `version` field and place unpacked plugin into `./private-plugins-storage/src` folder.
-
 
 For example [plugindemo](https://github.com/traefik/plugindemo):
 
