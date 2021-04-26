@@ -19,7 +19,7 @@ Pointing Traefik at your orchestrator should be the _only_ configuration step yo
 ---
 
 . **[Overview](#overview)** .
-**[Features](#features)** .
+**[Features](#features)** .a
 **[Supported backends](#supported-backends)** .
 **[Quickstart](#quickstart)** .
 **[Web UI](#web-ui)** .
@@ -34,6 +34,50 @@ Pointing Traefik at your orchestrator should be the _only_ configuration step yo
 ---
 
 :warning: Please be aware that the old configurations for Traefik v1.x are NOT compatible with the v2.x config as of now. If you're running v2, please ensure you are using a [v2 configuration](https://doc.traefik.io/traefik/).
+
+## Custom changes in this repo
+
+### `ForwardAuth` middleware optional request body forwarding support
+
+Configuration sample:
+
+# Forward authentication to example.com
+```toml
+[http.middlewares]
+  [http.middlewares.test-auth.forwardAuth]
+    address = "https://example.com/auth"
+    forwardBody = true
+```
+
+### Private plugin support
+
+To activate the private plugin, you must specify `private` in the `version` field and place unpacked plugin into `./private-plugins-storage/src` folder.
+
+
+For example [plugindemo](https://github.com/traefik/plugindemo):
+
+```yaml
+experimental:
+  plugins:
+    plugindemo:
+      moduleName: plugindemo
+      version: private
+```
+
+```
+private-plugins-storage/
+└── src
+    └── plugindemo
+        ├── demo.go
+        ├── demo_test.go
+        ├── .gitignore
+        ├── .golangci.toml
+        ├── go.mod
+        ├── LICENSE
+        ├── Makefile
+        ├── readme.md
+        └── .traefik.yml
+```
 
 ## Overview
 
