@@ -49,34 +49,6 @@ Configuration sample:
     forwardBody = true
 ```
 
-### Private plugin support
-
-To activate the private plugin, you must specify `private` in the `version` field and place unpacked plugin into `./private-plugins-storage/src` folder.
-
-For example [plugindemo](https://github.com/traefik/plugindemo):
-
-```yaml
-experimental:
-  plugins:
-    plugindemo:
-      moduleName: plugindemo
-      version: private
-```
-
-```
-private-plugins-storage/
-└── src
-    └── plugindemo
-        ├── demo.go
-        ├── demo_test.go
-        ├── .gitignore
-        ├── .golangci.toml
-        ├── go.mod
-        ├── LICENSE
-        ├── Makefile
-        ├── readme.md
-        └── .traefik.yml
-```
 
 ## Overview
 
