@@ -15,7 +15,7 @@ fi
 
 echo "Building ${VERSION} ${CODENAME} ${DATE}"
 
-GIT_REPO_URL='github.com/traefik/traefik/pkg/version'
+GIT_REPO_URL='github.com/traefik/traefik/v2/pkg/version'
 GO_BUILD_CMD="go build -ldflags"
 GO_BUILD_OPT="-s -w -X ${GIT_REPO_URL}.Version=${VERSION} -X ${GIT_REPO_URL}.Codename=${CODENAME} -X ${GIT_REPO_URL}.BuildDate=${DATE}"
 
