@@ -1,3 +1,8 @@
+---
+title: "Kubernetes IngressRoute & Traefik CRD"
+description: "The Traefik team developed a Custom Resource Definition (CRD) for an IngressRoute type, to provide a better way to configure access to a Kubernetes cluster."
+---
+
 # Traefik & Kubernetes
 
 The Kubernetes Ingress Controller, The Custom Resource Way.
@@ -15,7 +20,7 @@ the Traefik engineering team developed a [Custom Resource Definition](https://ku
 
     * Add/update **all** the Traefik resources [definitions](../reference/dynamic-configuration/kubernetes-crd.md#definitions)
     * Add/update the [RBAC](https://kubernetes.io/docs/reference/access-authn-authz/rbac/) for the Traefik custom resources
-    * Use [Helm Chart](../getting-started/install-traefik.md#use-the-helm-chart) or use a custom Traefik Deployment 
+    * Use [Helm Chart](../getting-started/install-traefik.md#use-the-helm-chart) or use a custom Traefik Deployment
         * Enable the kubernetesCRD provider
         * Apply the needed kubernetesCRD provider [configuration](#provider-configuration)
     * Add all necessary Traefik custom [resources](../reference/dynamic-configuration/kubernetes-crd.md#resources)
@@ -26,15 +31,14 @@ the Traefik engineering team developed a [Custom Resource Definition](https://ku
     
     For Kubernetes `v1.16+`, please use the Traefik `apiextensions.k8s.io/v1` CRDs instead.
 
-??? example "Initializing Resource Definition and RBAC"
+!!! example "Installing Resource Definition and RBAC"
 
-    ```yaml tab="Traefik Resource Definition"
-    # All resources definition must be declared
-    --8<-- "content/reference/dynamic-configuration/kubernetes-crd-definition-v1.yml"
-    ```
-
-    ```yaml tab="RBAC for Traefik CRD"
-    --8<-- "content/reference/dynamic-configuration/kubernetes-crd-rbac.yml"
+    ```bash
+    # Install Traefik Resource Definitions:
+    kubectl apply -f https://raw.githubusercontent.com/traefik/traefik/v2.8/docs/content/reference/dynamic-configuration/kubernetes-crd-definition-v1.yml
+    
+    # Install RBAC for Traefik:
+    kubectl apply -f https://raw.githubusercontent.com/traefik/traefik/v2.8/docs/content/reference/dynamic-configuration/kubernetes-crd-rbac.yml
     ```
 
 ## Resource Configuration
@@ -62,7 +66,7 @@ Previous versions of Traefik used a [KV store](https://doc.traefik.io/traefik/v1
 
 If you need Let's Encrypt with HA in a Kubernetes environment, we recommend using [Traefik Enterprise](https://traefik.io/traefik-enterprise/), which includes distributed Let's Encrypt as a supported feature.
 
-If you want to keep using Traefik Proxy, high availability for Let's Encrypt can be achieved by using a Certificate Controller such as [Cert-Manager](https://docs.cert-manager.io/en/latest/index.html).
+If you want to keep using Traefik Proxy, high availability for Let's Encrypt can be achieved by using a Certificate Controller such as [Cert-Manager](https://cert-manager.io/docs/).
 When using Cert-Manager to manage certificates, it creates secrets in your namespaces that can be referenced as TLS secrets in your [ingress objects](https://kubernetes.io/docs/concepts/services-networking/ingress/#tls).
 When using the Traefik Kubernetes CRD Provider, unfortunately Cert-Manager cannot yet interface directly with the CRDs.
 A workaround is to enable the [Kubernetes Ingress provider](./kubernetes-ingress.md) to allow Cert-Manager to create ingress objects to complete the challenges.
@@ -87,17 +91,17 @@ When the environment variables are not found, Traefik tries to connect to the Ku
 In this case, the endpoint is required.
 Specifically, it may be set to the URL used by `kubectl proxy` to connect to a Kubernetes cluster using the granted authentication and authorization of the associated kubeconfig.
 
-```toml tab="File (TOML)"
-[providers.kubernetesCRD]
-  endpoint = "http://localhost:8080"
-  # ...
-```
-
 ```yaml tab="File (YAML)"
 providers:
   kubernetesCRD:
     endpoint: "http://localhost:8080"
     # ...
+```
+
+```toml tab="File (TOML)"
+[providers.kubernetesCRD]
+  endpoint = "http://localhost:8080"
+  # ...
 ```
 
 ```bash tab="CLI"
@@ -110,17 +114,17 @@ _Optional, Default=""_
 
 Bearer token used for the Kubernetes client configuration.
 
-```toml tab="File (TOML)"
-[providers.kubernetesCRD]
-  token = "mytoken"
-  # ...
-```
-
 ```yaml tab="File (YAML)"
 providers:
   kubernetesCRD:
     token: "mytoken"
     # ...
+```
+
+```toml tab="File (TOML)"
+[providers.kubernetesCRD]
+  token = "mytoken"
+  # ...
 ```
 
 ```bash tab="CLI"
@@ -134,17 +138,17 @@ _Optional, Default=""_
 Path to the certificate authority file.
 Used for the Kubernetes client configuration.
 
-```toml tab="File (TOML)"
-[providers.kubernetesCRD]
-  certAuthFilePath = "/my/ca.crt"
-  # ...
-```
-
 ```yaml tab="File (YAML)"
 providers:
   kubernetesCRD:
     certAuthFilePath: "/my/ca.crt"
     # ...
+```
+
+```toml tab="File (TOML)"
+[providers.kubernetesCRD]
+  certAuthFilePath = "/my/ca.crt"
+  # ...
 ```
 
 ```bash tab="CLI"
@@ -158,12 +162,6 @@ _Optional, Default: []_
 Array of namespaces to watch.
 If left empty, watches all namespaces if the value of `namespaces`.
 
-```toml tab="File (TOML)"
-[providers.kubernetesCRD]
-  namespaces = ["default", "production"]
-  # ...
-```
-
 ```yaml tab="File (YAML)"
 providers:
   kubernetesCRD:
@@ -171,6 +169,12 @@ providers:
     - "default"
     - "production"
     # ...
+```
+
+```toml tab="File (TOML)"
+[providers.kubernetesCRD]
+  namespaces = ["default", "production"]
+  # ...
 ```
 
 ```bash tab="CLI"
@@ -192,17 +196,17 @@ See [label-selectors](https://kubernetes.io/docs/concepts/overview/working-with-
 
     Because the label selector is applied to all Traefik Custom Resources, they all must match the filter.
 
-```toml tab="File (TOML)"
-[providers.kubernetesCRD]
-  labelselector = "app=traefik"
-  # ...
-```
-
 ```yaml tab="File (YAML)"
 providers:
   kubernetesCRD:
-    labelselector: "app=traefik"
+    labelSelector: "app=traefik"
     # ...
+```
+
+```toml tab="File (TOML)"
+[providers.kubernetesCRD]
+  labelSelector = "app=traefik"
+  # ...
 ```
 
 ```bash tab="CLI"
@@ -218,17 +222,17 @@ Value of `kubernetes.io/ingress.class` annotation that identifies resource objec
 If the parameter is set, only resources containing an annotation with the same value are processed.
 Otherwise, resources missing the annotation, having an empty value, or the value `traefik` are processed.
 
-```toml tab="File (TOML)"
-[providers.kubernetesCRD]
-  ingressClass = "traefik-internal"
-  # ...
-```
-
 ```yaml tab="File (YAML)"
 providers:
   kubernetesCRD:
     ingressClass: "traefik-internal"
     # ...
+```
+
+```toml tab="File (TOML)"
+[providers.kubernetesCRD]
+  ingressClass = "traefik-internal"
+  # ...
 ```
 
 ```bash tab="CLI"
@@ -247,12 +251,6 @@ If left empty, the provider does not apply any throttling and does not drop any 
 The value of `throttleDuration` should be provided in seconds or as a valid duration format,
 see [time.ParseDuration](https://golang.org/pkg/time/#ParseDuration).
 
-```toml tab="File (TOML)"
-[providers.kubernetesCRD]
-  throttleDuration = "10s"
-  # ...
-```
-
 ```yaml tab="File (YAML)"
 providers:
   kubernetesCRD:
@@ -260,35 +258,87 @@ providers:
     # ...
 ```
 
+```toml tab="File (TOML)"
+[providers.kubernetesCRD]
+  throttleDuration = "10s"
+  # ...
+```
+
 ```bash tab="CLI"
 --providers.kubernetescrd.throttleDuration=10s
 ```
 
-### `allowCrossNamespace`
+### `allowEmptyServices`
 
-_Optional, Default: true_
+_Optional, Default: false_
 
-If the parameter is set to `false`, IngressRoutes are not able to reference any resources in other namespaces than theirs.
-
-!!! warning "Deprecation"
-
-    Please note that the default value for this option will be set to `false` in a future version.
-
-```toml tab="File (TOML)"
-[providers.kubernetesCRD]
-  allowCrossNamespace = false
-  # ...
-```
+If the parameter is set to `true`,
+it allows the creation of an empty [servers load balancer](../routing/services/index.md#servers-load-balancer) if the targeted Kubernetes service has no endpoints available.
+With IngressRoute resources,
+this results in `503` HTTP responses instead of `404` ones.
 
 ```yaml tab="File (YAML)"
 providers:
   kubernetesCRD:
-    allowCrossNamespace: false
+    allowEmptyServices: true
     # ...
 ```
 
+```toml tab="File (TOML)"
+[providers.kubernetesCRD]
+  allowEmptyServices = true
+  # ...
+```
+
 ```bash tab="CLI"
---providers.kubernetescrd.allowCrossNamespace=false
+--providers.kubernetesCRD.allowEmptyServices=true
+```
+
+### `allowCrossNamespace`
+
+_Optional, Default: false_
+
+If the parameter is set to `true`,
+IngressRoute are able to reference resources in namespaces other than theirs.
+
+```yaml tab="File (YAML)"
+providers:
+  kubernetesCRD:
+    allowCrossNamespace: true
+    # ...
+```
+
+```toml tab="File (TOML)"
+[providers.kubernetesCRD]
+  allowCrossNamespace = true
+  # ...
+```
+
+```bash tab="CLI"
+--providers.kubernetescrd.allowCrossNamespace=true
+```
+
+### `allowExternalNameServices`
+
+_Optional, Default: false_
+
+If the parameter is set to `true`, IngressRoutes are able to reference ExternalName services.
+
+```yaml tab="File (YAML)"
+providers:
+  kubernetesCRD:
+    allowExternalNameServices: true
+    # ...
+```
+
+```toml tab="File (TOML)"
+[providers.kubernetesCRD]
+  allowExternalNameServices = true
+  # ...
+```
+
+```bash tab="CLI"
+--providers.kubernetescrd.allowexternalnameservices=true
 ```
 
 ## Full Example

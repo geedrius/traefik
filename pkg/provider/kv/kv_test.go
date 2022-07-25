@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/abronan/valkeyrie/store"
+	"github.com/kvtools/valkeyrie/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	ptypes "github.com/traefik/paerser/types"
@@ -69,6 +69,8 @@ func Test_buildConfiguration(t *testing.T) {
 		"traefik/http/services/Service03/weighted/services/0/weight":                                 "42",
 		"traefik/http/services/Service03/weighted/services/1/name":                                   "foobar",
 		"traefik/http/services/Service03/weighted/services/1/weight":                                 "42",
+		"traefik/http/services/Service04/failover/service":                                           "foobar",
+		"traefik/http/services/Service04/failover/fallback":                                          "foobar",
 		"traefik/http/middlewares/Middleware08/forwardAuth/authResponseHeaders/0":                    "foobar",
 		"traefik/http/middlewares/Middleware08/forwardAuth/authResponseHeaders/1":                    "foobar",
 		"traefik/http/middlewares/Middleware08/forwardAuth/authRequestHeaders/0":                     "foobar",
@@ -97,7 +99,6 @@ func Test_buildConfiguration(t *testing.T) {
 		"traefik/http/middlewares/Middleware06/digestAuth/usersFile":                                 "foobar",
 		"traefik/http/middlewares/Middleware09/headers/accessControlAllowHeaders/0":                  "foobar",
 		"traefik/http/middlewares/Middleware09/headers/accessControlAllowHeaders/1":                  "foobar",
-		"traefik/http/middlewares/Middleware09/headers/accessControlAllowOrigin":                     "foobar",
 		"traefik/http/middlewares/Middleware09/headers/accessControlAllowOriginList/0":               "foobar",
 		"traefik/http/middlewares/Middleware09/headers/accessControlAllowOriginList/1":               "foobar",
 		"traefik/http/middlewares/Middleware09/headers/accessControlAllowOriginListRegex/0":          "foobar",
@@ -105,6 +106,7 @@ func Test_buildConfiguration(t *testing.T) {
 		"traefik/http/middlewares/Middleware09/headers/contentTypeNosniff":                           "true",
 		"traefik/http/middlewares/Middleware09/headers/accessControlAllowCredentials":                "true",
 		"traefik/http/middlewares/Middleware09/headers/featurePolicy":                                "foobar",
+		"traefik/http/middlewares/Middleware09/headers/permissionsPolicy":                            "foobar",
 		"traefik/http/middlewares/Middleware09/headers/forceSTSHeader":                               "true",
 		"traefik/http/middlewares/Middleware09/headers/sslRedirect":                                  "true",
 		"traefik/http/middlewares/Middleware09/headers/sslHost":                                      "foobar",
@@ -156,6 +158,7 @@ func Test_buildConfiguration(t *testing.T) {
 		"traefik/http/middlewares/Middleware12/passTLSClientCert/info/subject/province":              "true",
 		"traefik/http/middlewares/Middleware12/passTLSClientCert/info/subject/locality":              "true",
 		"traefik/http/middlewares/Middleware12/passTLSClientCert/info/subject/organization":          "true",
+		"traefik/http/middlewares/Middleware12/passTLSClientCert/info/subject/organizationalunit":    "true",
 		"traefik/http/middlewares/Middleware12/passTLSClientCert/info/subject/commonName":            "true",
 		"traefik/http/middlewares/Middleware12/passTLSClientCert/info/subject/serialNumber":          "true",
 		"traefik/http/middlewares/Middleware12/passTLSClientCert/info/subject/domainComponent":       "true",
@@ -170,6 +173,9 @@ func Test_buildConfiguration(t *testing.T) {
 		"traefik/http/middlewares/Middleware03/chain/middlewares/0":                                  "foobar",
 		"traefik/http/middlewares/Middleware03/chain/middlewares/1":                                  "foobar",
 		"traefik/http/middlewares/Middleware04/circuitBreaker/expression":                            "foobar",
+		"traefik/http/middlewares/Middleware04/circuitBreaker/checkPeriod":                           "1s",
+		"traefik/http/middlewares/Middleware04/circuitBreaker/fallbackDuration":                      "1s",
+		"traefik/http/middlewares/Middleware04/circuitBreaker/recoveryDuration":                      "1s",
 		"traefik/http/middlewares/Middleware07/errors/status/0":                                      "foobar",
 		"traefik/http/middlewares/Middleware07/errors/status/1":                                      "foobar",
 		"traefik/http/middlewares/Middleware07/errors/service":                                       "foobar",
@@ -195,7 +201,7 @@ func Test_buildConfiguration(t *testing.T) {
 		"traefik/http/middlewares/Middleware02/buffering/retryExpression":                            "foobar",
 		"traefik/http/middlewares/Middleware02/buffering/maxRequestBodyBytes":                        "42",
 		"traefik/http/middlewares/Middleware02/buffering/memRequestBodyBytes":                        "42",
-		"traefik/http/middlewares/Middleware05/compress":                                             "",
+		"traefik/http/middlewares/Middleware05/compress/minResponseBodyBytes":                        "42",
 		"traefik/http/middlewares/Middleware18/retry/attempts":                                       "42",
 		"traefik/http/middlewares/Middleware19/stripPrefix/prefixes/0":                               "foobar",
 		"traefik/http/middlewares/Middleware19/stripPrefix/prefixes/1":                               "foobar",
@@ -390,16 +396,21 @@ func Test_buildConfiguration(t *testing.T) {
 				},
 				"Middleware04": {
 					CircuitBreaker: &dynamic.CircuitBreaker{
-						Expression: "foobar",
+						Expression:       "foobar",
+						CheckPeriod:      ptypes.Duration(time.Second),
+						FallbackDuration: ptypes.Duration(time.Second),
+						RecoveryDuration: ptypes.Duration(time.Second),
 					},
 				},
 				"Middleware05": {
-					Compress: &dynamic.Compress{},
+					Compress: &dynamic.Compress{
+						MinResponseBodyBytes: 42,
+					},
 				},
 				"Middleware08": {
 					ForwardAuth: &dynamic.ForwardAuth{
 						Address: "foobar",
-						TLS: &dynamic.ClientTLS{
+						TLS: &types.ClientTLS{
 							CA:                 "foobar",
 							CAOptional:         true,
 							Cert:               "foobar",
@@ -478,16 +489,17 @@ func Test_buildConfiguration(t *testing.T) {
 							NotAfter:  true,
 							NotBefore: true,
 							Sans:      true,
-							Subject: &dynamic.TLSCLientCertificateDNInfo{
-								Country:         true,
-								Province:        true,
-								Locality:        true,
-								Organization:    true,
-								CommonName:      true,
-								SerialNumber:    true,
-								DomainComponent: true,
+							Subject: &dynamic.TLSClientCertificateSubjectDNInfo{
+								Country:            true,
+								Province:           true,
+								Locality:           true,
+								Organization:       true,
+								OrganizationalUnit: true,
+								CommonName:         true,
+								SerialNumber:       true,
+								DomainComponent:    true,
 							},
-							Issuer: &dynamic.TLSCLientCertificateDNInfo{
+							Issuer: &dynamic.TLSClientCertificateIssuerDNInfo{
 								Country:         true,
 								Province:        true,
 								Locality:        true,
@@ -554,7 +566,6 @@ func Test_buildConfiguration(t *testing.T) {
 							"foobar",
 							"foobar",
 						},
-						AccessControlAllowOrigin: "foobar",
 						AccessControlAllowOriginList: []string{
 							"foobar",
 							"foobar",
@@ -598,6 +609,7 @@ func Test_buildConfiguration(t *testing.T) {
 						PublicKey:               "foobar",
 						ReferrerPolicy:          "foobar",
 						FeaturePolicy:           "foobar",
+						PermissionsPolicy:       "foobar",
 						IsDevelopment:           true,
 					},
 				},
@@ -628,7 +640,7 @@ func Test_buildConfiguration(t *testing.T) {
 								Scheme: "http",
 							},
 						},
-						HealthCheck: &dynamic.HealthCheck{
+						HealthCheck: &dynamic.ServerHealthCheck{
 							Scheme:          "foobar",
 							Path:            "foobar",
 							Port:            42,
@@ -682,6 +694,12 @@ func Test_buildConfiguration(t *testing.T) {
 								HTTPOnly: true,
 							},
 						},
+					},
+				},
+				"Service04": {
+					Failover: &dynamic.Failover{
+						Service:  "foobar",
+						Fallback: "foobar",
 					},
 				},
 			},
@@ -846,6 +864,11 @@ func Test_buildConfiguration(t *testing.T) {
 						ClientAuthType: "foobar",
 					},
 					SniStrict: true,
+					ALPNProtocols: []string{
+						"h2",
+						"http/1.1",
+						"acme-tls/1",
+					},
 				},
 				"Options1": {
 					MinVersion: "foobar",
@@ -866,6 +889,11 @@ func Test_buildConfiguration(t *testing.T) {
 						ClientAuthType: "foobar",
 					},
 					SniStrict: true,
+					ALPNProtocols: []string{
+						"h2",
+						"http/1.1",
+						"acme-tls/1",
+					},
 				},
 			},
 			Stores: map[string]tls.Store{

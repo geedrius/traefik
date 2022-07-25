@@ -4,7 +4,7 @@
       <div class="row items-center no-wrap">
         <div class="col text-center">
           <q-avatar class="provider-logo">
-            <q-icon :name="`img:statics/providers/${getNameLogo}.svg`" />
+            <q-icon :name="`img:${getLogoPath}`" />
           </q-avatar>
         </div>
       </div>
@@ -25,8 +25,20 @@ export default {
     getName () {
       return this.name
     },
-    getNameLogo () {
-      return this.getName.toLowerCase()
+    getLogoPath () {
+      const name = this.getName.toLowerCase()
+
+      if (name.startsWith('plugin-')) {
+        return 'statics/providers/plugin.svg'
+      }
+      if (name.startsWith('consul-')) {
+        return `statics/providers/consul.svg`
+      }
+      if (name.startsWith('consulcatalog-')) {
+        return `statics/providers/consulcatalog.svg`
+      }
+
+      return `statics/providers/${name}.svg`
     }
   }
 }

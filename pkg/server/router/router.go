@@ -8,10 +8,12 @@ import (
 	"github.com/containous/alice"
 	"github.com/traefik/traefik/v2/pkg/config/runtime"
 	"github.com/traefik/traefik/v2/pkg/log"
+	"github.com/traefik/traefik/v2/pkg/metrics"
 	"github.com/traefik/traefik/v2/pkg/middlewares/accesslog"
+	metricsMiddle "github.com/traefik/traefik/v2/pkg/middlewares/metrics"
 	"github.com/traefik/traefik/v2/pkg/middlewares/recovery"
 	"github.com/traefik/traefik/v2/pkg/middlewares/tracing"
-	"github.com/traefik/traefik/v2/pkg/rules"
+	httpmuxer "github.com/traefik/traefik/v2/pkg/muxer/http"
 	"github.com/traefik/traefik/v2/pkg/server/middleware"
 	"github.com/traefik/traefik/v2/pkg/server/provider"
 )
@@ -29,16 +31,18 @@ type serviceManager interface {
 type Manager struct {
 	routerHandlers     map[string]http.Handler
 	serviceManager     serviceManager
+	metricsRegistry    metrics.Registry
 	middlewaresBuilder middlewareBuilder
 	chainBuilder       *middleware.ChainBuilder
 	conf               *runtime.Configuration
 }
 
 // NewManager Creates a new Manager.
-func NewManager(conf *runtime.Configuration, serviceManager serviceManager, middlewaresBuilder middlewareBuilder, chainBuilder *middleware.ChainBuilder) *Manager {
+func NewManager(conf *runtime.Configuration, serviceManager serviceManager, middlewaresBuilder middlewareBuilder, chainBuilder *middleware.ChainBuilder, metricsRegistry metrics.Registry) *Manager {
 	return &Manager{
 		routerHandlers:     make(map[string]http.Handler),
 		serviceManager:     serviceManager,
+		metricsRegistry:    metricsRegistry,
 		middlewaresBuilder: middlewaresBuilder,
 		chainBuilder:       chainBuilder,
 		conf:               conf,
@@ -98,7 +102,7 @@ func (m *Manager) BuildHandlers(rootCtx context.Context, entryPoints []string, t
 }
 
 func (m *Manager) buildEntryPointHandler(ctx context.Context, configs map[string]*runtime.RouterInfo) (http.Handler, error) {
-	router, err := rules.NewRouter()
+	muxer, err := httpmuxer.NewMuxer()
 	if err != nil {
 		return nil, err
 	}
@@ -114,7 +118,7 @@ func (m *Manager) buildEntryPointHandler(ctx context.Context, configs map[string
 			continue
 		}
 
-		err = router.AddRoute(routerConfig.Rule, routerConfig.Priority, handler)
+		err = muxer.AddRoute(routerConfig.Rule, routerConfig.Priority, handler)
 		if err != nil {
 			routerConfig.AddError(err, true)
 			logger.Error(err)
@@ -122,14 +126,14 @@ func (m *Manager) buildEntryPointHandler(ctx context.Context, configs map[string
 		}
 	}
 
-	router.SortRoutes()
+	muxer.SortRoutes()
 
 	chain := alice.New()
 	chain = chain.Append(func(next http.Handler) (http.Handler, error) {
 		return recovery.New(ctx, next)
 	})
 
-	return chain.Then(router)
+	return chain.Then(muxer)
 }
 
 func (m *Manager) buildRouterHandler(ctx context.Context, routerName string, routerConfig *runtime.RouterInfo) (http.Handler, error) {
@@ -177,7 +181,13 @@ func (m *Manager) buildHTTPHandler(ctx context.Context, router *runtime.RouterIn
 		return tracing.NewForwarder(ctx, routerName, router.Service, next), nil
 	}
 
-	return alice.New().Extend(*mHandler).Append(tHandler).Then(sHandler)
+	chain := alice.New()
+
+	if m.metricsRegistry != nil && m.metricsRegistry.IsRouterEnabled() {
+		chain = chain.Append(metricsMiddle.WrapRouterHandler(ctx, m.metricsRegistry, routerName, provider.GetQualifiedName(ctx, router.Service)))
+	}
+
+	return chain.Extend(*mHandler).Append(tHandler).Then(sHandler)
 }
 
 // BuildDefaultHTTPRouter creates a default HTTP router.

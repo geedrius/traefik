@@ -46,7 +46,7 @@
           <div v-if="hasMiddlewares" class="col-12 col-md-3 q-mb-lg path-block">
             <div class="row no-wrap items-center q-mb-lg app-title">
               <q-icon name="eva-layers"></q-icon>
-              <div class="app-title-label">HTTP Middlewares</div>
+              <div class="app-title-label">{{ middlewareType }}</div>
             </div>
             <div class="row items-start q-col-gutter-lg">
               <div class="col-12 col-md-8">
@@ -62,7 +62,9 @@
             </div>
           </div>
 
-          <div v-if="routerByName.item.service" class="col-12 col-md-3 q-mb-lg path-block">
+          <div v-if="routerByName.item.service"
+               class="service col-12 col-md-3 q-mb-lg path-block"
+               @click="$router.push({ path: `/${protocol}/services/${getServiceId(routerByName.item)}`})">
             <div class="row no-wrap items-center q-mb-lg app-title">
               <q-icon name="eva-flash"></q-icon>
               <div class="app-title-label">Service</div>
@@ -125,7 +127,7 @@
             </div>
           </div>
 
-          <div class="col-12 col-md-4 q-mb-lg path-block" v-if="protocol === 'http'">
+          <div class="col-12 col-md-4 q-mb-lg path-block" v-if="protocol !== 'udp'">
             <div class="row no-wrap items-center q-mb-lg app-title">
               <q-icon name="eva-layers"></q-icon>
               <div class="app-title-label">Middlewares</div>
@@ -187,6 +189,9 @@ export default {
     hasTLSConfiguration () {
       return this.routerByName.item.tls
     },
+    middlewareType () {
+      return this.$route.meta.protocol.toUpperCase() + ' Middlewares'
+    },
     routerType () {
       return this.$route.meta.protocol.toUpperCase() + ' Router'
     },
@@ -194,7 +199,7 @@ export default {
     ...mapGetters('tcp', { tcp_routerByName: 'routerByName' }),
     ...mapGetters('udp', { udp_routerByName: 'routerByName' }),
     hasMiddlewares () {
-      return this.$route.meta.protocol === 'http' && this.middlewares.length > 0
+      return this.$route.meta.protocol !== 'udp' && this.middlewares.length > 0
     },
     protocol () {
       return this.$route.meta.protocol
@@ -204,11 +209,14 @@ export default {
     },
     getRouterByName () {
       return this[`${this.protocol}_getRouterByName`]
+    },
+    getMiddlewareByName () {
+      return this[`${this.protocol}_getMiddlewareByName`]
     }
   },
   methods: {
-    ...mapActions('http', { http_getRouterByName: 'getRouterByName', getMiddlewareByName: 'getMiddlewareByName' }),
-    ...mapActions('tcp', { tcp_getRouterByName: 'getRouterByName' }),
+    ...mapActions('http', { http_getRouterByName: 'getRouterByName', http_getMiddlewareByName: 'getMiddlewareByName' }),
+    ...mapActions('tcp', { tcp_getRouterByName: 'getRouterByName', tcp_getMiddlewareByName: 'getMiddlewareByName' }),
     ...mapActions('udp', { udp_getRouterByName: 'getRouterByName' }),
     ...mapActions('entrypoints', { getEntrypointsByName: 'getByName' }),
     refreshAll () {
@@ -264,6 +272,14 @@ export default {
         .catch(error => {
           console.log('Error -> routers/byName', error)
         })
+    },
+    getServiceId (data) {
+      const words = data.service.split('@')
+      if (words.length === 2) {
+        return data.service
+      }
+
+      return `${data.service}@${data.provider}`
     }
   },
   created () {
@@ -290,6 +306,10 @@ export default {
       margin-top: 20px;
       margin-left: 20px;
       color: #b2b2b2;
+    }
+
+    &.service {
+      cursor: pointer;
     }
   }
 

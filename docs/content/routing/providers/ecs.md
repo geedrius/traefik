@@ -1,3 +1,8 @@
+---
+title: "Traefik ECS Documentation"
+description: "AWS ECS is a provider for routing and load balancing in Traefik Proxy. Read the technical documentation to get started."
+---
+
 # Traefik & ECS
 
 A Story of Labels & Elastic Containers
@@ -268,7 +273,7 @@ you'd add the label `traefik.http.services.{name-of-your-choice}.loadbalancer.pa
 
 You can declare pieces of middleware using labels starting with `traefik.http.middlewares.{name-of-your-choice}.`, followed by the middleware type/options.
 
-For example, to declare a middleware [`redirectscheme`](../../middlewares/redirectscheme.md) named `my-redirect`, you'd write `traefik.http.middlewares.my-redirect.redirectscheme.scheme: https`.
+For example, to declare a middleware [`redirectscheme`](../../middlewares/http/redirectscheme.md) named `my-redirect`, you'd write `traefik.http.middlewares.my-redirect.redirectscheme.scheme: https`.
 
 More information about available middlewares in the dedicated [middlewares section](../../middlewares/overview.md).
 
@@ -377,6 +382,14 @@ You can declare TCP Routers and/or Services using labels.
     
     ```yaml
     traefik.tcp.routers.mytcprouter.tls.passthrough=true
+    ```
+
+??? info "`traefik.tcp.routers.<router_name>.priority`"
+
+    See [priority](../routers/index.md#priority_1) for more information.
+
+    ```yaml
+    traefik.tcp.routers.myrouter.priority=42
     ```
 
 #### TCP Services

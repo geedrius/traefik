@@ -1,3 +1,8 @@
+---
+title: "Traefik TLS Documentation"
+description: "Learn how to configure the transport layer security (TLS) connection in Traefik Proxy. Read the technical documentation."
+---
+
 # TLS
 
 Transport Layer Security
@@ -13,18 +18,6 @@ See the [Let's Encrypt](./acme.md) page.
 
 To add / remove TLS certificates, even when Traefik is already running, their definition can be added to the [dynamic configuration](../getting-started/configuration-overview.md), in the `[[tls.certificates]]` section:
 
-```toml tab="File (TOML)"
-# Dynamic configuration
-
-[[tls.certificates]]
-  certFile = "/path/to/domain.cert"
-  keyFile = "/path/to/domain.key"
-
-[[tls.certificates]]
-  certFile = "/path/to/other-domain.cert"
-  keyFile = "/path/to/other-domain.key"
-```
-
 ```yaml tab="File (YAML)"
 # Dynamic configuration
 
@@ -36,22 +29,27 @@ tls:
       keyFile: /path/to/other-domain.key
 ```
 
+```toml tab="File (TOML)"
+# Dynamic configuration
+
+[[tls.certificates]]
+  certFile = "/path/to/domain.cert"
+  keyFile = "/path/to/domain.key"
+
+[[tls.certificates]]
+  certFile = "/path/to/other-domain.cert"
+  keyFile = "/path/to/other-domain.key"
+```
+
 !!! important "Restriction"
 
     In the above example, we've used the [file provider](../providers/file.md) to handle these definitions.
     It is the only available method to configure the certificates (as well as the options and the stores).
-    However, in [Kubernetes](../providers/kubernetes-crd.md), the certificates can and must be provided by [secrets](https://kubernetes.io/docs/concepts/configuration/secret/). 
+    However, in [Kubernetes](../providers/kubernetes-crd.md), the certificates can and must be provided by [secrets](https://kubernetes.io/docs/concepts/configuration/secret/).
 
 ## Certificates Stores
 
 In Traefik, certificates are grouped together in certificates stores, which are defined as such:
-
-```toml tab="File (TOML)"
-# Dynamic configuration
-
-[tls.stores]
-  [tls.stores.default]
-```
 
 ```yaml tab="File (YAML)"
 # Dynamic configuration
@@ -61,27 +59,19 @@ tls:
     default: {}
 ```
 
+```toml tab="File (TOML)"
+# Dynamic configuration
+
+[tls.stores]
+  [tls.stores.default]
+```
+
 !!! important "Restriction"
 
     Any store definition other than the default one (named `default`) will be ignored,
     and there is therefore only one globally available TLS store.
 
 In the `tls.certificates` section, a list of stores can then be specified to indicate where the certificates should be stored:
-
-```toml tab="File (TOML)"
-# Dynamic configuration
-
-[[tls.certificates]]
-  certFile = "/path/to/domain.cert"
-  keyFile = "/path/to/domain.key"
-  stores = ["default"]
-
-[[tls.certificates]]
-  # Note that since no store is defined,
-  # the certificate below will be stored in the `default` store.
-  certFile = "/path/to/other-domain.cert"
-  keyFile = "/path/to/other-domain.key"
-```
 
 ```yaml tab="File (YAML)"
 # Dynamic configuration
@@ -98,6 +88,21 @@ tls:
       keyFile: /path/to/other-domain.key
 ```
 
+```toml tab="File (TOML)"
+# Dynamic configuration
+
+[[tls.certificates]]
+  certFile = "/path/to/domain.cert"
+  keyFile = "/path/to/domain.key"
+  stores = ["default"]
+
+[[tls.certificates]]
+  # Note that since no store is defined,
+  # the certificate below will be stored in the `default` store.
+  certFile = "/path/to/other-domain.cert"
+  keyFile = "/path/to/other-domain.key"
+```
+
 !!! important "Restriction"
 
     The `stores` list will actually be ignored and automatically set to `["default"]`.
@@ -106,6 +111,17 @@ tls:
 
 Traefik can use a default certificate for connections without a SNI, or without a matching domain.
 This default certificate should be defined in a TLS store:
+
+```yaml tab="File (YAML)"
+# Dynamic configuration
+
+tls:
+  stores:
+    default:
+      defaultCertificate:
+        certFile: path/to/cert.crt
+        keyFile: path/to/cert.key
+```
 
 ```toml tab="File (TOML)"
 # Dynamic configuration
@@ -117,15 +133,28 @@ This default certificate should be defined in a TLS store:
       keyFile  = "path/to/cert.key"
 ```
 
-```yaml tab="File (YAML)"
-# Dynamic configuration
+```yaml tab="Kubernetes"
+apiVersion: traefik.containo.us/v1alpha1
+kind: TLSStore
+metadata:
+  name: default
+  namespace: default
 
-tls:
-  stores:
-    default:
-      defaultCertificate:
-        certFile: path/to/cert.crt
-        keyFile: path/to/cert.key
+spec:
+  defaultCertificate:
+    secretName: default-certificate
+    
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: default-certificate
+  namespace: default
+  
+type: Opaque
+data:
+  tls.crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCi0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0=
+  tls.key: LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCi0tLS0tRU5EIFBSSVZBVEUgS0VZLS0tLS0=
 ```
 
 If no default certificate is provided, Traefik generates and uses a self-signed certificate.
@@ -143,29 +172,17 @@ The TLS options allow one to configure some parameters of the TLS connection.
     you must specify the provider namespace, for example:  
     `traefik.http.routers.myrouter.tls.options=myoptions@file`
 
-!!! important "TLSOptions in Kubernetes"
+!!! important "TLSOption in Kubernetes"
 
-    When using the TLSOptions-CRD in Kubernetes, one might setup a default set of options that,
+    When using the [TLSOption resource](../../routing/providers/kubernetes-crd#kind-tlsoption) in Kubernetes, one might setup a default set of options that,
     if not explicitly overwritten, should apply to all ingresses.  
-    To achieve that, you'll have to create a TLSOptions CR with the name `default`.
+    To achieve that, you'll have to create a TLSOption resource with the name `default`.
     There may exist only one TLSOption with the name `default` (across all namespaces) - otherwise they will be dropped.  
     To explicitly use a different TLSOption (and using the Kubernetes Ingress resources)
     you'll have to add an annotation to the Ingress in the following form:
     `traefik.ingress.kubernetes.io/router.tls.options: <resource-namespace>-<resource-name>@kubernetescrd`
 
 ### Minimum TLS Version
-
-```toml tab="File (TOML)"
-# Dynamic configuration
-
-[tls.options]
-
-  [tls.options.default]
-    minVersion = "VersionTLS12"
-
-  [tls.options.mintls13]
-    minVersion = "VersionTLS13"
-```
 
 ```yaml tab="File (YAML)"
 # Dynamic configuration
@@ -177,6 +194,18 @@ tls:
 
     mintls13:
       minVersion: VersionTLS13
+```
+
+```toml tab="File (TOML)"
+# Dynamic configuration
+
+[tls.options]
+
+  [tls.options.default]
+    minVersion = "VersionTLS12"
+
+  [tls.options.mintls13]
+    minVersion = "VersionTLS13"
 ```
 
 ```yaml tab="Kubernetes"
@@ -206,18 +235,6 @@ We discourage the use of this setting to disable TLS1.3.
 
 The recommended approach is to update the clients to support TLS1.3.
 
-```toml tab="File (TOML)"
-# Dynamic configuration
-
-[tls.options]
-
-  [tls.options.default]
-    maxVersion = "VersionTLS13"
-
-  [tls.options.maxtls12]
-    maxVersion = "VersionTLS12"
-```
-
 ```yaml tab="File (YAML)"
 # Dynamic configuration
 
@@ -228,6 +245,18 @@ tls:
 
     maxtls12:
       maxVersion: VersionTLS12
+```
+
+```toml tab="File (TOML)"
+# Dynamic configuration
+
+[tls.options]
+
+  [tls.options.default]
+    maxVersion = "VersionTLS13"
+
+  [tls.options.maxtls12]
+    maxVersion = "VersionTLS12"
 ```
 
 ```yaml tab="Kubernetes"
@@ -255,16 +284,6 @@ spec:
 
 See [cipherSuites](https://godoc.org/crypto/tls#pkg-constants) for more information.
 
-```toml tab="File (TOML)"
-# Dynamic configuration
-
-[tls.options]
-  [tls.options.default]
-    cipherSuites = [
-      "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"
-    ]
-```
-
 ```yaml tab="File (YAML)"
 # Dynamic configuration
 
@@ -273,6 +292,16 @@ tls:
     default:
       cipherSuites:
         - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+```
+
+```toml tab="File (TOML)"
+# Dynamic configuration
+
+[tls.options]
+  [tls.options.default]
+    cipherSuites = [
+      "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"
+    ]
 ```
 
 ```yaml tab="Kubernetes"
@@ -301,14 +330,6 @@ The names of the curves defined by [`crypto`](https://godoc.org/crypto/tls#Curve
 
 See [CurveID](https://godoc.org/crypto/tls#CurveID) for more information.
 
-```toml tab="File (TOML)"
-# Dynamic configuration
-
-[tls.options]
-  [tls.options.default]
-    curvePreferences = ["CurveP521", "CurveP384"]
-```
-
 ```yaml tab="File (YAML)"
 # Dynamic configuration
 
@@ -318,6 +339,14 @@ tls:
       curvePreferences:
         - CurveP521
         - CurveP384
+```
+
+```toml tab="File (TOML)"
+# Dynamic configuration
+
+[tls.options]
+  [tls.options.default]
+    curvePreferences = ["CurveP521", "CurveP384"]
 ```
 
 ```yaml tab="Kubernetes"
@@ -335,16 +364,9 @@ spec:
 
 ### Strict SNI Checking
 
-With strict SNI checking enabled, Traefik won't allow connections from clients
-that do not specify a server_name extension or don't match any certificate configured on the tlsOption.
-
-```toml tab="File (TOML)"
-# Dynamic configuration
-
-[tls.options]
-  [tls.options.default]
-    sniStrict = true
-```
+With strict SNI checking enabled, Traefik won't allow connections from clients that do not specify a server_name extension
+or don't match any of the configured certificates.
+The default certificate is irrelevant on that matter.
 
 ```yaml tab="File (YAML)"
 # Dynamic configuration
@@ -353,6 +375,14 @@ tls:
   options:
     default:
       sniStrict: true
+```
+
+```toml tab="File (TOML)"
+# Dynamic configuration
+
+[tls.options]
+  [tls.options.default]
+    sniStrict = true
 ```
 
 ```yaml tab="Kubernetes"
@@ -371,14 +401,6 @@ spec:
 This option allows the server to choose its most preferred cipher suite instead of the client's.
 Please note that this is enabled automatically when `minVersion` or `maxVersion` are set.
 
-```toml tab="File (TOML)"
-# Dynamic configuration
-
-[tls.options]
-  [tls.options.default]
-    preferServerCipherSuites = true
-```
-
 ```yaml tab="File (YAML)"
 # Dynamic configuration
 
@@ -386,6 +408,14 @@ tls:
   options:
     default:
       preferServerCipherSuites: true
+```
+
+```toml tab="File (TOML)"
+# Dynamic configuration
+
+[tls.options]
+  [tls.options.default]
+    preferServerCipherSuites = true
 ```
 
 ```yaml tab="Kubernetes"
@@ -399,30 +429,60 @@ spec:
   preferServerCipherSuites: true
 ```
 
-### Client Authentication (mTLS)
+### ALPN Protocols
 
-Traefik supports mutual authentication, through the `clientAuth` section.
+_Optional, Default="h2, http/1.1, acme-tls/1"_
 
-For authentication policies that require verification of the client certificate, the certificate authority for the certificate should be set in `clientAuth.caFiles`.
- 
-The `clientAuth.clientAuthType` option governs the behaviour as follows:
+This option allows to specify the list of supported application level protocols for the TLS handshake,
+in order of preference.
+If the client supports ALPN, the selected protocol will be one from this list, 
+and the connection will fail if there is no mutually supported protocol.
 
-- `NoClientCert`: disregards any client certificate.
-- `RequestClientCert`: asks for a certificate but proceeds anyway if none is provided.
-- `RequireAnyClientCert`: requires a certificate but does not verify if it is signed by a CA listed in `clientAuth.caFiles`.
-- `VerifyClientCertIfGiven`: if a certificate is provided, verifies if it is signed by a CA listed in `clientAuth.caFiles`. Otherwise proceeds without any certificate.
-- `RequireAndVerifyClientCert`: requires a certificate, which must be signed by a CA listed in `clientAuth.caFiles`. 
+```yaml tab="File (YAML)"
+# Dynamic configuration
+
+tls:
+  options:
+    default:
+      alpnProtocols:
+        - http/1.1
+        - h2
+```
 
 ```toml tab="File (TOML)"
 # Dynamic configuration
 
 [tls.options]
   [tls.options.default]
-    [tls.options.default.clientAuth]
-      # in PEM format. each file can contain multiple CAs.
-      caFiles = ["tests/clientca1.crt", "tests/clientca2.crt"]
-      clientAuthType = "RequireAndVerifyClientCert"
+    alpnProtocols = ["http/1.1", "h2"]
 ```
+
+```yaml tab="Kubernetes"
+apiVersion: traefik.containo.us/v1alpha1
+kind: TLSOption
+metadata:
+  name: default
+  namespace: default
+
+spec:
+  alpnProtocols:
+    - http/1.1
+    - h2
+```
+
+### Client Authentication (mTLS)
+
+Traefik supports mutual authentication, through the `clientAuth` section.
+
+For authentication policies that require verification of the client certificate, the certificate authority for the certificate should be set in `clientAuth.caFiles`.
+
+The `clientAuth.clientAuthType` option governs the behaviour as follows:
+
+- `NoClientCert`: disregards any client certificate.
+- `RequestClientCert`: asks for a certificate but proceeds anyway if none is provided.
+- `RequireAnyClientCert`: requires a certificate but does not verify if it is signed by a CA listed in `clientAuth.caFiles`.
+- `VerifyClientCertIfGiven`: if a certificate is provided, verifies if it is signed by a CA listed in `clientAuth.caFiles`. Otherwise proceeds without any certificate.
+- `RequireAndVerifyClientCert`: requires a certificate, which must be signed by a CA listed in `clientAuth.caFiles`.
 
 ```yaml tab="File (YAML)"
 # Dynamic configuration
@@ -438,6 +498,17 @@ tls:
         clientAuthType: RequireAndVerifyClientCert
 ```
 
+```toml tab="File (TOML)"
+# Dynamic configuration
+
+[tls.options]
+  [tls.options.default]
+    [tls.options.default.clientAuth]
+      # in PEM format. each file can contain multiple CAs.
+      caFiles = ["tests/clientca1.crt", "tests/clientca2.crt"]
+      clientAuthType = "RequireAndVerifyClientCert"
+```
+
 ```yaml tab="Kubernetes"
 apiVersion: traefik.containo.us/v1alpha1
 kind: TLSOption
@@ -447,7 +518,7 @@ metadata:
 
 spec:
   clientAuth:
-    # the CA certificate is extracted from key `tls.ca` of the given secrets.
+    # the CA certificate is extracted from key `tls.ca` or `ca.crt` of the given secrets.
     secretNames:
       - secretCA
     clientAuthType: RequireAndVerifyClientCert

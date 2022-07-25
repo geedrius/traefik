@@ -6,16 +6,17 @@ import (
 	"github.com/traefik/traefik/v2/pkg/config/runtime"
 	"github.com/traefik/traefik/v2/pkg/config/static"
 	"github.com/traefik/traefik/v2/pkg/log"
+	"github.com/traefik/traefik/v2/pkg/metrics"
 	"github.com/traefik/traefik/v2/pkg/server/middleware"
+	tcpmiddleware "github.com/traefik/traefik/v2/pkg/server/middleware/tcp"
 	"github.com/traefik/traefik/v2/pkg/server/router"
-	routertcp "github.com/traefik/traefik/v2/pkg/server/router/tcp"
-	routerudp "github.com/traefik/traefik/v2/pkg/server/router/udp"
+	tcprouter "github.com/traefik/traefik/v2/pkg/server/router/tcp"
+	udprouter "github.com/traefik/traefik/v2/pkg/server/router/udp"
 	"github.com/traefik/traefik/v2/pkg/server/service"
 	"github.com/traefik/traefik/v2/pkg/server/service/tcp"
 	"github.com/traefik/traefik/v2/pkg/server/service/udp"
-	tcpCore "github.com/traefik/traefik/v2/pkg/tcp"
 	"github.com/traefik/traefik/v2/pkg/tls"
-	udpCore "github.com/traefik/traefik/v2/pkg/udp"
+	udptypes "github.com/traefik/traefik/v2/pkg/udp"
 )
 
 // RouterFactory the factory of TCP/UDP routers.
@@ -23,7 +24,8 @@ type RouterFactory struct {
 	entryPointsTCP []string
 	entryPointsUDP []string
 
-	managerFactory *service.ManagerFactory
+	managerFactory  *service.ManagerFactory
+	metricsRegistry metrics.Registry
 
 	pluginBuilder middleware.PluginsBuilder
 
@@ -32,7 +34,9 @@ type RouterFactory struct {
 }
 
 // NewRouterFactory creates a new RouterFactory.
-func NewRouterFactory(staticConfiguration static.Configuration, managerFactory *service.ManagerFactory, tlsManager *tls.Manager, chainBuilder *middleware.ChainBuilder, pluginBuilder middleware.PluginsBuilder) *RouterFactory {
+func NewRouterFactory(staticConfiguration static.Configuration, managerFactory *service.ManagerFactory, tlsManager *tls.Manager,
+	chainBuilder *middleware.ChainBuilder, pluginBuilder middleware.PluginsBuilder, metricsRegistry metrics.Registry,
+) *RouterFactory {
 	var entryPointsTCP, entryPointsUDP []string
 	for name, cfg := range staticConfiguration.EntryPoints {
 		protocol, err := cfg.GetProtocol()
@@ -49,17 +53,18 @@ func NewRouterFactory(staticConfiguration static.Configuration, managerFactory *
 	}
 
 	return &RouterFactory{
-		entryPointsTCP: entryPointsTCP,
-		entryPointsUDP: entryPointsUDP,
-		managerFactory: managerFactory,
-		tlsManager:     tlsManager,
-		chainBuilder:   chainBuilder,
-		pluginBuilder:  pluginBuilder,
+		entryPointsTCP:  entryPointsTCP,
+		entryPointsUDP:  entryPointsUDP,
+		managerFactory:  managerFactory,
+		metricsRegistry: metricsRegistry,
+		tlsManager:      tlsManager,
+		chainBuilder:    chainBuilder,
+		pluginBuilder:   pluginBuilder,
 	}
 }
 
 // CreateRouters creates new TCPRouters and UDPRouters.
-func (f *RouterFactory) CreateRouters(rtConf *runtime.Configuration) (map[string]*tcpCore.Router, map[string]udpCore.Handler) {
+func (f *RouterFactory) CreateRouters(rtConf *runtime.Configuration) (map[string]*tcprouter.Router, map[string]udptypes.Handler) {
 	ctx := context.Background()
 
 	// HTTP
@@ -67,7 +72,7 @@ func (f *RouterFactory) CreateRouters(rtConf *runtime.Configuration) (map[string
 
 	middlewaresBuilder := middleware.NewBuilder(rtConf.Middlewares, serviceManager, f.pluginBuilder)
 
-	routerManager := router.NewManager(rtConf, serviceManager, middlewaresBuilder, f.chainBuilder)
+	routerManager := router.NewManager(rtConf, serviceManager, middlewaresBuilder, f.chainBuilder, f.metricsRegistry)
 
 	handlersNonTLS := routerManager.BuildHandlers(ctx, f.entryPointsTCP, false)
 	handlersTLS := routerManager.BuildHandlers(ctx, f.entryPointsTCP, true)
@@ -77,12 +82,14 @@ func (f *RouterFactory) CreateRouters(rtConf *runtime.Configuration) (map[string
 	// TCP
 	svcTCPManager := tcp.NewManager(rtConf)
 
-	rtTCPManager := routertcp.NewManager(rtConf, svcTCPManager, handlersNonTLS, handlersTLS, f.tlsManager)
+	middlewaresTCPBuilder := tcpmiddleware.NewBuilder(rtConf.TCPMiddlewares)
+
+	rtTCPManager := tcprouter.NewManager(rtConf, svcTCPManager, middlewaresTCPBuilder, handlersNonTLS, handlersTLS, f.tlsManager)
 	routersTCP := rtTCPManager.BuildHandlers(ctx, f.entryPointsTCP)
 
 	// UDP
 	svcUDPManager := udp.NewManager(rtConf)
-	rtUDPManager := routerudp.NewManager(rtConf, svcUDPManager)
+	rtUDPManager := udprouter.NewManager(rtConf, svcUDPManager)
 	routersUDP := rtUDPManager.BuildHandlers(ctx, f.entryPointsUDP)
 
 	rtConf.PopulateUsedBy()

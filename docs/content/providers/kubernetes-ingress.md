@@ -1,3 +1,8 @@
+---
+title: "Traefik Kubernetes Ingress Documentation"
+description: "Understand the requirements, routing configuration, and how to set up Traefik Proxy as your Kubernetes Ingress Controller. Read the technical documentation."
+---
+
 # Traefik & Kubernetes
 
 The Kubernetes Ingress Controller.
@@ -18,13 +23,13 @@ See the dedicated section in [routing](../routing/providers/kubernetes-ingress.m
 
 You can enable the provider in the static configuration:
 
-```toml tab="File (TOML)"
-[providers.kubernetesIngress]
-```
-
 ```yaml tab="File (YAML)"
 providers:
   kubernetesIngress: {}
+```
+
+```toml tab="File (TOML)"
+[providers.kubernetesIngress]
 ```
 
 ```bash tab="CLI"
@@ -36,10 +41,10 @@ and derives the corresponding dynamic configuration from it,
 which in turn creates the resulting routers, services, handlers, etc.
 
 ```yaml tab="Ingress"
+apiVersion: networking.k8s.io/v1
 kind: Ingress
-apiVersion: networking.k8s.io/v1beta1
 metadata:
-  name: "foo"
+  name: foo
   namespace: production
 
 spec:
@@ -48,20 +53,26 @@ spec:
       http:
         paths:
           - path: /bar
+            pathType: Exact
             backend:
-              serviceName: service1
-              servicePort: 80
+              service:
+                name:  service1
+                port:
+                  number: 80
           - path: /foo
+            pathType: Exact
             backend:
-              serviceName: service1
-              servicePort: 80
+              service:
+                name:  service1
+                port:
+                  number: 80
 ```
 
-```yaml tab="Ingress Kubernetes v1.19+"
+```yaml tab="Ingress v1beta1 (deprecated)"
+apiVersion: networking.k8s.io/v1beta1
 kind: Ingress
-apiVersion: networking.k8s.io/v1
 metadata:
-  name: "foo"
+  name: foo
   namespace: production
 
 spec:
@@ -71,16 +82,12 @@ spec:
         paths:
           - path: /bar
             backend:
-              service:
-                name:  service1
-                port:
-                  number: 80
+              serviceName: service1
+              servicePort: 80
           - path: /foo
             backend:
-              service:
-                name:  service1
-                port:
-                  number: 80
+              serviceName: service1
+              servicePort: 80
 ```
 
 ## LetsEncrypt Support with the Ingress Provider
@@ -102,7 +109,7 @@ If you need Let's Encrypt with high availability in a Kubernetes environment,
 we recommend using [Traefik Enterprise](https://traefik.io/traefik-enterprise/) which includes distributed Let's Encrypt as a supported feature.
 
 If you want to keep using Traefik Proxy,
-LetsEncrypt HA can be achieved by using a Certificate Controller such as [Cert-Manager](https://docs.cert-manager.io/en/latest/index.html).
+LetsEncrypt HA can be achieved by using a Certificate Controller such as [Cert-Manager](https://cert-manager.io/docs/).
 When using Cert-Manager to manage certificates,
 it creates secrets in your namespaces that can be referenced as TLS secrets in your [ingress objects](https://kubernetes.io/docs/concepts/services-networking/ingress/#tls).
 
@@ -125,17 +132,17 @@ When the environment variables are not found, Traefik tries to connect to the Ku
 In this case, the endpoint is required.
 Specifically, it may be set to the URL used by `kubectl proxy` to connect to a Kubernetes cluster using the granted authentication and authorization of the associated kubeconfig.
 
-```toml tab="File (TOML)"
-[providers.kubernetesIngress]
-  endpoint = "http://localhost:8080"
-  # ...
-```
-
 ```yaml tab="File (YAML)"
 providers:
   kubernetesIngress:
     endpoint: "http://localhost:8080"
     # ...
+```
+
+```toml tab="File (TOML)"
+[providers.kubernetesIngress]
+  endpoint = "http://localhost:8080"
+  # ...
 ```
 
 ```bash tab="CLI"
@@ -148,17 +155,17 @@ _Optional, Default=""_
 
 Bearer token used for the Kubernetes client configuration.
 
-```toml tab="File (TOML)"
-[providers.kubernetesIngress]
-  token = "mytoken"
-  # ...
-```
-
 ```yaml tab="File (YAML)"
 providers:
   kubernetesIngress:
     token: "mytoken"
     # ...
+```
+
+```toml tab="File (TOML)"
+[providers.kubernetesIngress]
+  token = "mytoken"
+  # ...
 ```
 
 ```bash tab="CLI"
@@ -172,17 +179,17 @@ _Optional, Default=""_
 Path to the certificate authority file.
 Used for the Kubernetes client configuration.
 
-```toml tab="File (TOML)"
-[providers.kubernetesIngress]
-  certAuthFilePath = "/my/ca.crt"
-  # ...
-```
-
 ```yaml tab="File (YAML)"
 providers:
   kubernetesIngress:
     certAuthFilePath: "/my/ca.crt"
     # ...
+```
+
+```toml tab="File (TOML)"
+[providers.kubernetesIngress]
+  certAuthFilePath = "/my/ca.crt"
+  # ...
 ```
 
 ```bash tab="CLI"
@@ -196,12 +203,6 @@ _Optional, Default: []_
 Array of namespaces to watch.
 If left empty, watches all namespaces if the value of `namespaces`.
 
-```toml tab="File (TOML)"
-[providers.kubernetesIngress]
-  namespaces = ["default", "production"]
-  # ...
-```
-
 ```yaml tab="File (YAML)"
 providers:
   kubernetesIngress:
@@ -209,6 +210,12 @@ providers:
       - "default"
       - "production"
     # ...
+```
+
+```toml tab="File (TOML)"
+[providers.kubernetesIngress]
+  namespaces = ["default", "production"]
+  # ...
 ```
 
 ```bash tab="CLI"
@@ -224,17 +231,17 @@ If left empty, Traefik processes all Ingress objects in the configured namespace
 
 See [label-selectors](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#label-selectors) for details.
 
+```yaml tab="File (YAML)"
+providers:
+  kubernetesIngress:
+    labelSelector: "app=traefik"
+    # ...
+```
+
 ```toml tab="File (TOML)"
 [providers.kubernetesIngress]
   labelSelector = "app=traefik"
   # ...
-```
-
-```yaml tab="File (YAML)"
-providers:
-  kubernetesIngress:
-    labelselector: "app=traefik"
-    # ...
 ```
 
 ```bash tab="CLI"
@@ -270,19 +277,19 @@ Otherwise, Ingresses missing the annotation, having an empty value, or the value
     ```
 
     ```yaml tab="Ingress"
-    apiVersion: "networking.k8s.io/v1beta1"
-    kind: "Ingress"
+    apiVersion: networking.k8s.io/v1beta1
+    kind: Ingress
     metadata:
-      name: "example-ingress"
+      name: example-ingress
     spec:
-      ingressClassName: "traefik-lb"
+      ingressClassName: traefik-lb
       rules:
       - host: "*.example.com"
         http:
           paths:
-          - path: "/example"
+          - path: /example
             backend:
-              serviceName: "example-service"
+              serviceName: example-service
               servicePort: 80
     ```
 
@@ -301,35 +308,36 @@ Otherwise, Ingresses missing the annotation, having an empty value, or the value
     ```
 
     ```yaml tab="Ingress"
-    apiVersion: "networking.k8s.io/v1"
-    kind: "Ingress"
+    apiVersion: networking.k8s.io/v1
+    kind: Ingress
     metadata:
-      name: "example-ingress"
+      name: example-ingress
     spec:
-      ingressClassName: "traefik-lb"
+      ingressClassName: traefik-lb
       rules:
       - host: "*.example.com"
         http:
           paths:
-          - path: "/example"
+          - path: /example
+            pathType: Exact
             backend:
               service:
-                name: "example-service"
+                name: example-service
                 port:
                     number: 80
     ```
-
-```toml tab="File (TOML)"
-[providers.kubernetesIngress]
-  ingressClass = "traefik-internal"
-  # ...
-```
 
 ```yaml tab="File (YAML)"
 providers:
   kubernetesIngress:
     ingressClass: "traefik-internal"
     # ...
+```
+
+```toml tab="File (TOML)"
+[providers.kubernetesIngress]
+  ingressClass = "traefik-internal"
+  # ...
 ```
 
 ```bash tab="CLI"
@@ -344,18 +352,18 @@ _Optional, Default: ""_
 
 Hostname used for Kubernetes Ingress endpoints.
 
-```toml tab="File (TOML)"
-[providers.kubernetesIngress.ingressEndpoint]
-  hostname = "example.net"
-  # ...
-```
-
 ```yaml tab="File (YAML)"
 providers:
   kubernetesIngress:
     ingressEndpoint:
       hostname: "example.net"
     # ...
+```
+
+```toml tab="File (TOML)"
+[providers.kubernetesIngress.ingressEndpoint]
+  hostname = "example.net"
+  # ...
 ```
 
 ```bash tab="CLI"
@@ -368,18 +376,18 @@ _Optional, Default: ""_
 
 IP used for Kubernetes Ingress endpoints.
 
-```toml tab="File (TOML)"
-[providers.kubernetesIngress.ingressEndpoint]
-  ip = "1.2.3.4"
-  # ...
-```
-
 ```yaml tab="File (YAML)"
 providers:
   kubernetesIngress:
     ingressEndpoint:
       ip: "1.2.3.4"
     # ...
+```
+
+```toml tab="File (TOML)"
+[providers.kubernetesIngress.ingressEndpoint]
+  ip = "1.2.3.4"
+  # ...
 ```
 
 ```bash tab="CLI"
@@ -393,18 +401,18 @@ _Optional, Default: ""_
 Published Kubernetes Service to copy status from.
 Format: `namespace/servicename`.
 
-```toml tab="File (TOML)"
-[providers.kubernetesIngress.ingressEndpoint]
-  publishedService = "namespace/foo-service"
-  # ...
-```
-
 ```yaml tab="File (YAML)"
 providers:
   kubernetesIngress:
     ingressEndpoint:
       publishedService: "namespace/foo-service"
     # ...
+```
+
+```toml tab="File (TOML)"
+[providers.kubernetesIngress.ingressEndpoint]
+  publishedService = "namespace/foo-service"
+  # ...
 ```
 
 ```bash tab="CLI"
@@ -423,12 +431,6 @@ If left empty, the provider does not apply any throttling and does not drop any 
 The value of `throttleDuration` should be provided in seconds or as a valid duration format,
 see [time.ParseDuration](https://golang.org/pkg/time/#ParseDuration).
 
-```toml tab="File (TOML)"
-[providers.kubernetesIngress]
-  throttleDuration = "10s"
-  # ...
-```
-
 ```yaml tab="File (YAML)"
 providers:
   kubernetesIngress:
@@ -436,11 +438,66 @@ providers:
     # ...
 ```
 
+```toml tab="File (TOML)"
+[providers.kubernetesIngress]
+  throttleDuration = "10s"
+  # ...
+```
+
 ```bash tab="CLI"
 --providers.kubernetesingress.throttleDuration=10s
+```
+
+### `allowEmptyServices`
+
+_Optional, Default: false_
+
+If the parameter is set to `true`,
+it allows the creation of an empty [servers load balancer](../routing/services/index.md#servers-load-balancer) if the targeted Kubernetes service has no endpoints available.
+This results in `503` HTTP responses instead of `404` ones.
+
+```yaml tab="File (YAML)"
+providers:
+  kubernetesIngress:
+    allowEmptyServices: true
+    # ...
+```
+
+```toml tab="File (TOML)"
+[providers.kubernetesIngress]
+  allowEmptyServices = true
+  # ...
+```
+
+```bash tab="CLI"
+--providers.kubernetesingress.allowEmptyServices=true
+```
+
+### `allowExternalNameServices`
+
+_Optional, Default: false_
+
+If the parameter is set to `true`,
+Ingresses are able to reference ExternalName services.
+
+```yaml tab="File (YAML)"
+providers:
+  kubernetesIngress:
+    allowExternalNameServices: true
+    # ...
+```
+
+```toml tab="File (TOML)"
+[providers.kubernetesIngress]
+  allowExternalNameServices = true
+  # ...
+```
+
+```bash tab="CLI"
+--providers.kubernetesingress.allowexternalnameservices=true
 ```
 
 ### Further
 
 To learn more about the various aspects of the Ingress specification that Traefik supports,
-many examples of Ingresses definitions are located in the test [examples](https://github.com/traefik/traefik/tree/v2.4/pkg/provider/kubernetes/ingress/fixtures) of the Traefik repository.
+many examples of Ingresses definitions are located in the test [examples](https://github.com/traefik/traefik/tree/v2.8/pkg/provider/kubernetes/ingress/fixtures) of the Traefik repository.

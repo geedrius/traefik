@@ -69,6 +69,8 @@
         service = "foobar"
         maxBodySize = 42
 
+        [http.services.Service02.mirroring.healthCheck]
+
         [[http.services.Service02.mirroring.mirrors]]
           name = "foobar"
           percent = 42
@@ -78,6 +80,7 @@
           percent = 42
     [http.services.Service03]
       [http.services.Service03.weighted]
+        [http.services.Service03.weighted.healthCheck]
 
         [[http.services.Service03.weighted.services]]
           name = "foobar"
@@ -92,6 +95,12 @@
             secure = true
             httpOnly = true
             sameSite = "foobar"
+    [http.services.Service04]
+      [http.services.Service04.failover]
+        service = "foobar"
+        fallback = "foobar"
+
+      [http.services.Service04.failover.healthCheck]
   [http.middlewares]
     [http.middlewares.Middleware00]
       [http.middlewares.Middleware00.addPrefix]
@@ -116,9 +125,13 @@
     [http.middlewares.Middleware04]
       [http.middlewares.Middleware04.circuitBreaker]
         expression = "foobar"
+        checkPeriod = "42s"
+        fallbackDuration = "42s"
+        recoveryDuration = "42s"
     [http.middlewares.Middleware05]
       [http.middlewares.Middleware05.compress]
         excludedContentTypes = ["foobar", "foobar"]
+        minResponseBodyBytes = 42
     [http.middlewares.Middleware06]
       [http.middlewares.Middleware06.contentType]
         autoDetect = true
@@ -152,7 +165,6 @@
         accessControlAllowCredentials = true
         accessControlAllowHeaders = ["foobar", "foobar"]
         accessControlAllowMethods = ["foobar", "foobar"]
-        accessControlAllowOrigin = "foobar"
         accessControlAllowOriginList = ["foobar", "foobar"]
         accessControlAllowOriginListRegex = ["foobar", "foobar"]
         accessControlExposeHeaders = ["foobar", "foobar"]
@@ -177,6 +189,7 @@
         publicKey = "foobar"
         referrerPolicy = "foobar"
         featurePolicy = "foobar"
+        permissionsPolicy = "foobar"
         isDevelopment = true
         [http.middlewares.Middleware10.headers.customRequestHeaders]
           name0 = "foobar"
@@ -215,6 +228,7 @@
             province = true
             locality = true
             organization = true
+            organizationalUnit = true
             commonName = true
             serialNumber = true
             domainComponent = true
@@ -233,7 +247,7 @@
     [http.middlewares.Middleware15]
       [http.middlewares.Middleware15.rateLimit]
         average = 42
-        period = 42
+        period = "42s"
         burst = 42
         [http.middlewares.Middleware15.rateLimit.sourceCriterion]
           requestHeaderName = "foobar"
@@ -261,7 +275,7 @@
     [http.middlewares.Middleware20]
       [http.middlewares.Middleware20.retry]
         attempts = 42
-        initialInterval = 42
+        initialInterval = "42s"
     [http.middlewares.Middleware21]
       [http.middlewares.Middleware21.stripPrefix]
         prefixes = ["foobar", "foobar"]
@@ -276,6 +290,7 @@
       rootCAs = ["foobar", "foobar"]
       maxIdleConnsPerHost = 42
       disableHTTP2 = true
+      peerCertURI = "foobar"
 
       [[http.serversTransports.ServersTransport0.certificates]]
         certFile = "foobar"
@@ -288,12 +303,15 @@
         dialTimeout = "42s"
         responseHeaderTimeout = "42s"
         idleConnTimeout = "42s"
+        readIdleTimeout = "42s"
+        pingTimeout = "42s"
     [http.serversTransports.ServersTransport1]
       serverName = "foobar"
       insecureSkipVerify = true
       rootCAs = ["foobar", "foobar"]
       maxIdleConnsPerHost = 42
       disableHTTP2 = true
+      peerCertURI = "foobar"
 
       [[http.serversTransports.ServersTransport1.certificates]]
         certFile = "foobar"
@@ -306,13 +324,17 @@
         dialTimeout = "42s"
         responseHeaderTimeout = "42s"
         idleConnTimeout = "42s"
+        readIdleTimeout = "42s"
+        pingTimeout = "42s"
 
 [tcp]
   [tcp.routers]
     [tcp.routers.TCPRouter0]
       entryPoints = ["foobar", "foobar"]
+      middlewares = ["foobar", "foobar"]
       service = "foobar"
       rule = "foobar"
+      priority = 42
       [tcp.routers.TCPRouter0.tls]
         passthrough = true
         options = "foobar"
@@ -327,8 +349,10 @@
           sans = ["foobar", "foobar"]
     [tcp.routers.TCPRouter1]
       entryPoints = ["foobar", "foobar"]
+      middlewares = ["foobar", "foobar"]
       service = "foobar"
       rule = "foobar"
+      priority = 42
       [tcp.routers.TCPRouter1.tls]
         passthrough = true
         options = "foobar"
@@ -363,6 +387,13 @@
         [[tcp.services.TCPService02.weighted.services]]
           name = "foobar"
           weight = 42
+  [tcp.middlewares]
+    [tcp.middlewares.TCPMiddleware00]
+      [tcp.middlewares.TCPMiddleware00.ipWhiteList]
+        sourceRange = ["foobar", "foobar"]
+    [tcp.middlewares.TCPMiddleware01]
+      [tcp.middlewares.TCPMiddleware01.inFlightConn]
+        amount = 42
 
 [udp]
   [udp.routers]
@@ -411,6 +442,7 @@
       curvePreferences = ["foobar", "foobar"]
       sniStrict = true
       preferServerCipherSuites = true
+      alpnProtocols = ["foobar", "foobar"]
       [tls.options.Options0.clientAuth]
         caFiles = ["foobar", "foobar"]
         clientAuthType = "foobar"
@@ -421,6 +453,7 @@
       curvePreferences = ["foobar", "foobar"]
       sniStrict = true
       preferServerCipherSuites = true
+      alpnProtocols = ["foobar", "foobar"]
       [tls.options.Options1.clientAuth]
         caFiles = ["foobar", "foobar"]
         clientAuthType = "foobar"

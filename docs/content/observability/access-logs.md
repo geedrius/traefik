@@ -1,3 +1,8 @@
+---
+title: "Traefik Access Logs Documentation"
+description: "Access logs are a key part of observability in Traefik Proxy. Read the technical documentation to learn their configurations, rotations, and time zones."
+---
+
 # Access Logs
 
 Who Calls Whom?
@@ -5,16 +10,16 @@ Who Calls Whom?
 
 By default, logs are written to stdout, in text format.
 
-## Configuration 
+## Configuration
 
 To enable the access logs:
 
-```toml tab="File (TOML)"
-[accessLog]
-```
-
 ```yaml tab="File (YAML)"
 accessLog: {}
+```
+
+```toml tab="File (TOML)"
+[accessLog]
 ```
 
 ```bash tab="CLI"
@@ -26,14 +31,14 @@ accessLog: {}
 By default access logs are written to the standard output.
 To write the logs into a log file, use the `filePath` option.
 
-```toml tab="File (TOML)"
-[accessLog]
-  filePath = "/path/to/access.log"
-```
-
 ```yaml tab="File (YAML)"
 accessLog:
   filePath: "/path/to/access.log"
+```
+
+```toml tab="File (TOML)"
+[accessLog]
+  filePath = "/path/to/access.log"
 ```
 
 ```bash tab="CLI"
@@ -41,13 +46,13 @@ accessLog:
 ```
 
 ### `format`
- 
+
 By default, logs are written using the Common Log Format (CLF).
 To write logs in JSON, use `json` in the `format` option.
 If the given format is unsupported, the default (CLF) is used instead.
 
 !!! info "Common Log Format"
-    
+
     ```html
     <remote_IP_address> - <client_user_name_if_available> [<timestamp>] "<request_method> <request_path> <request_protocol>" <origin_server_HTTP_status> <origin_server_content_size> "<request_referrer>" "<request_user_agent>" <number_of_requests_received_since_Traefik_started> "<Traefik_router_name>" "<Traefik_server_URL>" <request_duration_in_ms>ms
     ```
@@ -58,18 +63,18 @@ To write the logs in an asynchronous fashion, specify a  `bufferingSize` option.
 This option represents the number of log lines Traefik will keep in memory before writing them to the selected output.
 In some cases, this option can greatly help performances.
 
-```toml tab="File (TOML)"
-# Configuring a buffer of 100 lines
-[accessLog]
-  filePath = "/path/to/access.log"
-  bufferingSize = 100
-```
-
 ```yaml tab="File (YAML)"
 # Configuring a buffer of 100 lines
 accessLog:
   filePath: "/path/to/access.log"
   bufferingSize: 100
+```
+
+```toml tab="File (TOML)"
+# Configuring a buffer of 100 lines
+[accessLog]
+  filePath = "/path/to/access.log"
+  bufferingSize = 100
 ```
 
 ```bash tab="CLI"
@@ -80,14 +85,27 @@ accessLog:
 
 ### Filtering
 
-To filter logs, you can specify a set of filters which are logically "OR-connected". 
+To filter logs, you can specify a set of filters which are logically "OR-connected".
 Thus, specifying multiple filters will keep more access logs than specifying only one.
 
-The available filters are: 
+The available filters are:
 
 - `statusCodes`, to limit the access logs to requests with a status codes in the specified range
 - `retryAttempts`, to keep the access logs when at least one retry has happened
 - `minDuration`, to keep access logs when requests take longer than the specified duration (provided in seconds or as a valid duration format, see [time.ParseDuration](https://golang.org/pkg/time/#ParseDuration))
+
+```yaml tab="File (YAML)"
+# Configuring Multiple Filters
+accessLog:
+  filePath: "/path/to/access.log"
+  format: json
+  filters:
+    statusCodes:
+      - "200"
+      - "300-302"
+    retryAttempts: true
+    minDuration: "10ms"
+```
 
 ```toml tab="File (TOML)"
 # Configuring Multiple Filters
@@ -95,23 +113,10 @@ The available filters are:
   filePath = "/path/to/access.log"
   format = "json"
 
-  [accessLog.filters]    
+  [accessLog.filters]
     statusCodes = ["200", "300-302"]
     retryAttempts = true
     minDuration = "10ms"
-```
-
-```yaml tab="File (YAML)"
-# Configuring Multiple Filters
-accessLog:
-  filePath: "/path/to/access.log"
-  format: json
-  filters:    
-    statusCodes:
-      - "200"
-      - "300-302"
-    retryAttempts: true
-    minDuration: "10ms"
 ```
 
 ```bash tab="CLI"
@@ -133,28 +138,9 @@ Each field can be set to:
 - `drop` to drop the value
 - `redact` to replace the value with "redacted"
 
+The `defaultMode` for `fields.names` is `keep`.
+
 The `defaultMode` for `fields.headers` is `drop`.
-
-```toml tab="File (TOML)"
-# Limiting the Logs to Specific Fields
-[accessLog]
-  filePath = "/path/to/access.log"
-  format = "json"
-
-  [accessLog.fields]
-    defaultMode = "keep"
-
-    [accessLog.fields.names]
-      "ClientUsername" = "drop"
-
-    [accessLog.fields.headers]
-      defaultMode = "keep"
-  
-      [accessLog.fields.headers.names]
-        "User-Agent" = "redact"
-        "Authorization" = "drop"
-        "Content-Type" = "keep"
-```
 
 ```yaml tab="File (YAML)"
 # Limiting the Logs to Specific Fields
@@ -171,6 +157,27 @@ accessLog:
           User-Agent: redact
           Authorization: drop
           Content-Type: keep
+```
+
+```toml tab="File (TOML)"
+# Limiting the Logs to Specific Fields
+[accessLog]
+  filePath = "/path/to/access.log"
+  format = "json"
+
+  [accessLog.fields]
+    defaultMode = "keep"
+    
+    [accessLog.fields.names]
+      "ClientUsername" = "drop"
+
+    [accessLog.fields.headers]
+      defaultMode = "keep"
+
+      [accessLog.fields.headers.names]
+        "User-Agent" = "redact"
+        "Authorization" = "drop"
+        "Content-Type" = "keep"
 ```
 
 ```bash tab="CLI"
@@ -247,7 +254,7 @@ version: "3.7"
 
 services:
   traefik:
-    image: traefik:v2.2
+    image: traefik:v2.8
     environment:
       - TZ=US/Alaska
     command:

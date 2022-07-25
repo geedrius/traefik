@@ -15,7 +15,7 @@
             <div class="text-subtitle2">PROVIDER</div>
             <div class="block-right-text">
               <q-avatar class="provider-logo">
-                <q-icon :name="`img:statics/providers/${data.provider}.svg`" />
+                <q-icon :name="`img:${getProviderLogoPath}`" />
               </q-avatar>
               <div class="block-right-text-label">{{data.provider}}</div>
             </div>
@@ -39,8 +39,9 @@
             <div class="text-subtitle2">Main Service</div>
             <q-chip
               dense
-              class="app-chip app-chip-name">
+              class="app-chip app-chip-name app-chip-overflow">
               {{ data.mirroring.service }}
+              <q-tooltip>{{ data.mirroring.service }}</q-tooltip>
             </q-chip>
           </div>
         </div>
@@ -80,6 +81,34 @@
         </div>
       </q-card-section>
 
+      <q-card-section v-if="data.failover && data.failover.service">
+        <div class="row items-start no-wrap">
+          <div class="col">
+            <div class="text-subtitle2">Main Service</div>
+            <q-chip
+              dense
+              class="app-chip app-chip-name app-chip-overflow">
+              {{ data.failover.service }}
+              <q-tooltip>{{ data.failover.service }}</q-tooltip>
+            </q-chip>
+          </div>
+        </div>
+      </q-card-section>
+
+      <q-card-section v-if="data.failover && data.failover.fallback">
+        <div class="row items-start no-wrap">
+          <div class="col">
+            <div class="text-subtitle2">Fallback Service</div>
+            <q-chip
+              dense
+              class="app-chip app-chip-name app-chip-overflow">
+              {{ data.failover.fallback }}
+              <q-tooltip>{{ data.failover.fallback }}</q-tooltip>
+            </q-chip>
+          </div>
+        </div>
+      </q-card-section>
+
       <q-separator v-if="sticky" />
       <StickyServiceDetails v-if="sticky" :sticky="sticky" :dense="dense"/>
     </q-scroll-area>
@@ -113,6 +142,21 @@ export default {
       }
 
       return null
+    },
+    getProviderLogoPath () {
+      const name = this.data.provider.toLowerCase()
+
+      if (name.startsWith('plugin-')) {
+        return 'statics/providers/plugin.svg'
+      }
+      if (name.startsWith('consul-')) {
+        return `statics/providers/consul.svg`
+      }
+      if (name.startsWith('consulcatalog-')) {
+        return `statics/providers/consulcatalog.svg`
+      }
+
+      return `statics/providers/${name}.svg`
     }
   },
   filters: {

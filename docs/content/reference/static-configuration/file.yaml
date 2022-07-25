@@ -4,37 +4,34 @@ global:
 serversTransport:
   insecureSkipVerify: true
   rootCAs:
-  - foobar
-  - foobar
+    - foobar
+    - foobar
   maxIdleConnsPerHost: 42
   forwardingTimeouts:
-    dialTimeout: 42
-    responseHeaderTimeout: 42
-    idleConnTimeout: 42
+    dialTimeout: 42s
+    responseHeaderTimeout: 42s
+    idleConnTimeout: 42s
 entryPoints:
   EntryPoint0:
     address: foobar
     transport:
       lifeCycle:
-        requestAcceptGraceTimeout: 42
-        graceTimeOut: 42
+        requestAcceptGraceTimeout: 42s
+        graceTimeOut: 42s
       respondingTimeouts:
-        readTimeout: 42
-        writeTimeout: 42
-        idleTimeout: 42
+        readTimeout: 42s
+        writeTimeout: 42s
+        idleTimeout: 42s
     proxyProtocol:
       insecure: true
       trustedIPs:
-      - foobar
-      - foobar
+        - foobar
+        - foobar
     forwardedHeaders:
       insecure: true
       trustedIPs:
       - foobar
       - foobar
-    enableHTTP3: true
-    udp:
-      timeout: 42
     http:
       redirections:
         entryPoint:
@@ -43,22 +40,28 @@ entryPoints:
           permanent: true
           priority: 42
       middlewares:
-      - foobar
-      - foobar
+        - foobar
+        - foobar
       tls:
         options: foobar
         certResolver: foobar
         domains:
-        - main: foobar
-          sans:
-          - foobar
-          - foobar
-        - main: foobar
-          sans:
-          - foobar
-          - foobar
+          - main: foobar
+            sans:
+              - foobar
+              - foobar
+          - main: foobar
+            sans:
+              - foobar
+              - foobar
+    http2:
+      maxConcurrentStreams: 42
+    http3:
+      advertisedPort: 42
+    udp:
+      timeout: 42s
 providers:
-  providersThrottleDuration: 42
+  providersThrottleDuration: 42s
   docker:
     constraints: foobar
     watch: true
@@ -74,8 +77,9 @@ providers:
     useBindPortIP: true
     swarmMode: true
     network: foobar
-    swarmModeRefreshSeconds: 42
-    httpClientTimeout: 42
+    swarmModeRefreshSeconds: 42s
+    httpClientTimeout: 42s
+    allowEmptyServices: true
   file:
     directory: foobar
     watch: true
@@ -95,10 +99,10 @@ providers:
       cert: foobar
       key: foobar
       insecureSkipVerify: true
-    dialerTimeout: 42
-    responseHeaderTimeout: 42
-    tlsHandshakeTimeout: 42
-    keepAlive: 42
+    dialerTimeout: 42s
+    responseHeaderTimeout: 42s
+    tlsHandshakeTimeout: 42s
+    keepAlive: 42s
     forceTaskHostname: true
     basic:
       httpBasicAuthUser: foobar
@@ -109,11 +113,13 @@ providers:
     token: foobar
     certAuthFilePath: foobar
     namespaces:
-    - foobar
-    - foobar
+      - foobar
+      - foobar
     labelSelector: foobar
     ingressClass: foobar
     throttleDuration: 42s
+    allowEmptyServices: true
+    allowExternalNameServices: true
     ingressEndpoint:
       ip: foobar
       hostname: foobar
@@ -123,19 +129,21 @@ providers:
     token: foobar
     certAuthFilePath: foobar
     namespaces:
-    - foobar
-    - foobar
+      - foobar
+      - foobar
     allowCrossNamespace: true
+    allowExternalNameServices: true
     labelSelector: foobar
     ingressClass: foobar
     throttleDuration: 42s
+    allowEmptyServices: true
   kubernetesGateway:
     endpoint: foobar
     token: foobar
     certAuthFilePath: foobar
     namespaces:
-    - foobar
-    - foobar
+      - foobar
+      - foobar
     labelSelector: foobar
     throttleDuration: 42s
   rest:
@@ -158,6 +166,14 @@ providers:
     cache: true
     exposedByDefault: true
     defaultRule: foobar
+    connectAware: true
+    connectByDefault: true
+    serviceName: foobar
+    namespace: foobar
+    namespaces:
+      - foobar
+      - foobar
+    watch: true
     endpoint:
       address: foobar
       scheme: foobar
@@ -173,14 +189,33 @@ providers:
       httpAuth:
         username: foobar
         password: foobar
+  nomad:
+    constraints: foobar
+    prefix: foobar
+    refreshInterval: 42s
+    stale: true
+    exposedByDefault: true
+    defaultRule: foobar
+    namespace: foobar
+    endpoint:
+      address: foobar
+      region: foobar
+      token: foobar
+      endpointWaitTime: 42s
+      tls:
+        ca: foobar
+        caOptional: true
+        cert: foobar
+        key: foobar
+        insecureSkipVerify: true
   ecs:
     constraints: foobar
     exposedByDefault: true
     refreshSeconds: 42
     defaultRule: foobar
     clusters:
-    - foobar
-    - foobar
+      - foobar
+      - foobar
     autoDiscoverClusters: true
     region: foobar
     accessKeyID: foobar
@@ -188,10 +223,15 @@ providers:
   consul:
     rootKey: foobar
     endpoints:
-    - foobar
-    - foobar
+      - foobar
+      - foobar
     username: foobar
     password: foobar
+    token: foobar
+    namespace: foobar
+    namespaces:
+      - foobar
+      - foobar
     tls:
       ca: foobar
       caOptional: true
@@ -201,10 +241,11 @@ providers:
   etcd:
     rootKey: foobar
     endpoints:
-    - foobar
-    - foobar
+      - foobar
+      - foobar
     username: foobar
     password: foobar
+    token: foobar
     tls:
       ca: foobar
       caOptional: true
@@ -214,10 +255,11 @@ providers:
   zooKeeper:
     rootKey: foobar
     endpoints:
-    - foobar
-    - foobar
+      - foobar
+      - foobar
     username: foobar
     password: foobar
+    token: foobar
     tls:
       ca: foobar
       caOptional: true
@@ -227,10 +269,11 @@ providers:
   redis:
     rootKey: foobar
     endpoints:
-    - foobar
-    - foobar
+      - foobar
+      - foobar
     username: foobar
     password: foobar
+    token: foobar
     tls:
       ca: foobar
       caOptional: true
@@ -239,14 +282,17 @@ providers:
       insecureSkipVerify: true
   http:
     endpoint: foobar
-    pollInterval: 42
-    pollTimeout: 42
+    pollInterval: 42s
+    pollTimeout: 42s
     tls:
       ca: foobar
       caOptional: true
       cert: foobar
       key: foobar
       insecureSkipVerify: true
+  plugin:
+    Descriptor0: {}
+    Descriptor1: {}
 api:
   insecure: true
   dashboard: true
@@ -254,33 +300,52 @@ api:
 metrics:
   prometheus:
     buckets:
-    - 42
-    - 42
+      - 42
+      - 42
     addEntryPointsLabels: true
+    addRoutersLabels: true
     addServicesLabels: true
     entryPoint: foobar
     manualRouting: true
   datadog:
     address: foobar
-    pushInterval: 42
+    pushInterval: 42s
     addEntryPointsLabels: true
+    addRoutersLabels: true
     addServicesLabels: true
+    prefix: foobar
   statsD:
     address: foobar
-    pushInterval: 42
+    pushInterval: 42s
     addEntryPointsLabels: true
+    addRoutersLabels: true
     addServicesLabels: true
     prefix: foobar
   influxDB:
     address: foobar
     protocol: foobar
-    pushInterval: 42
+    pushInterval: 42s
     database: foobar
     retentionPolicy: foobar
     username: foobar
     password: foobar
     addEntryPointsLabels: true
+    addRoutersLabels: true
     addServicesLabels: true
+    additionalLabels:
+      foobar: foobar
+  influxDB2:
+    address: foobar
+    token: foobar
+    pushInterval: 42s
+    org: foobar
+    bucket: foobar
+    addEntryPointsLabels: true
+    addRoutersLabels: true
+    addServicesLabels: true
+    additionalLabels:
+      foobar: foobar
+
 ping:
   entryPoint: foobar
   manualRouting: true
@@ -294,10 +359,10 @@ accessLog:
   format: foobar
   filters:
     statusCodes:
-    - foobar
-    - foobar
+      - foobar
+      - foobar
     retryAttempts: true
-    minDuration: 42
+    minDuration: 42s
   fields:
     defaultMode: foobar
     names:
@@ -343,6 +408,7 @@ tracing:
     localAgentHost: foobar
     localAgentPort: 42
     logLevel: foobar
+    enableAutoProfile: true
   haystack:
     localAgentHost: foobar
     localAgentPort: 42
@@ -364,6 +430,7 @@ certificatesResolvers:
     acme:
       email: foobar
       caServer: foobar
+      certificatesDuration: 42
       preferredChain: foobar
       storage: foobar
       keyType: foobar
@@ -372,10 +439,10 @@ certificatesResolvers:
         hmacEncoded: foobar
       dnsChallenge:
         provider: foobar
-        delayBeforeCheck: 42
+        delayBeforeCheck: 42s
         resolvers:
-        - foobar
-        - foobar
+          - foobar
+          - foobar
         disablePropagationCheck: true
       httpChallenge:
         entryPoint: foobar
@@ -384,6 +451,7 @@ certificatesResolvers:
     acme:
       email: foobar
       caServer: foobar
+      certificatesDuration: 42
       preferredChain: foobar
       storage: foobar
       keyType: foobar
@@ -392,18 +460,27 @@ certificatesResolvers:
         hmacEncoded: foobar
       dnsChallenge:
         provider: foobar
-        delayBeforeCheck: 42
+        delayBeforeCheck: 42s
         resolvers:
-        - foobar
-        - foobar
+          - foobar
+          - foobar
         disablePropagationCheck: true
       httpChallenge:
         entryPoint: foobar
       tlsChallenge: {}
 pilot:
   token: foobar
+  dashboard: true
+hub:
+  tls:
+    insecure: true
+    ca: foobar
+    cert: foobar
+    key: foobar
 experimental:
   kubernetesGateway: true
+  http3: true
+  hub: true
   plugins:
     Descriptor0:
       moduleName: foobar
@@ -411,9 +488,8 @@ experimental:
     Descriptor1:
       moduleName: foobar
       version: foobar
-  devPlugin:
-    goPath: foobar
-    moduleName: foobar
-  http3: true
-  kubernetesGateway: true
-
+  localPlugins:
+    Descriptor0:
+      moduleName: foobar
+    Descriptor1:
+      moduleName: foobar

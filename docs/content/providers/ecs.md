@@ -1,3 +1,8 @@
+---
+title: "Traefik AWS ECS Documentation"
+description: "Configuration discovery in Traefik is achieved through Providers. Read the technical documentation for leveraging AWS ECS in Traefik."
+---
+
 # Traefik & AWS ECS
 
 A Story of Labels & Elastic Containers
@@ -11,13 +16,13 @@ Attach labels to your ECS containers and let Traefik do the rest!
 
     Enabling the ECS provider:
 
-    ```toml tab="File (TOML)"
-    [providers.ecs]
-    ```
-
     ```yaml tab="File (YAML)"
     providers:
       ecs: {}
+    ```
+
+    ```toml tab="File (TOML)"
+    [providers.ecs]
     ```
 
     ```bash tab="CLI"
@@ -63,17 +68,17 @@ Search for services in cluster list.
 - If set to `true` service discovery is disabled on configured clusters, but enabled for all other clusters.
 - If set to `false` service discovery is enabled on configured clusters only.
 
-```toml tab="File (TOML)"
-[providers.ecs]
-  autoDiscoverClusters = true
-  # ...
-```
-
 ```yaml tab="File (YAML)"
 providers:
   ecs:
     autoDiscoverClusters: true
     # ...
+```
+
+```toml tab="File (TOML)"
+[providers.ecs]
+  autoDiscoverClusters = true
+  # ...
 ```
 
 ```bash tab="CLI"
@@ -87,18 +92,18 @@ _Optional, Default=["default"]_
 
 Search for services in cluster list.
 
-```toml tab="File (TOML)"
-[providers.ecs]
-  clusters = ["default"]
-  # ...
-```
-
 ```yaml tab="File (YAML)"
 providers:
   ecs:
     clusters:
       - default
     # ...
+```
+
+```toml tab="File (TOML)"
+[providers.ecs]
+  clusters = ["default"]
+  # ...
 ```
 
 ```bash tab="CLI"
@@ -114,17 +119,17 @@ Expose ECS services by default in Traefik.
 
 If set to `false`, services that do not have a `traefik.enable=true` label are ignored from the resulting routing configuration.
 
-```toml tab="File (TOML)"
-[providers.ecs]
-  exposedByDefault = false
-  # ...
-```
-
 ```yaml tab="File (YAML)"
 providers:
   ecs:
     exposedByDefault: false
     # ...
+```
+
+```toml tab="File (TOML)"
+[providers.ecs]
+  exposedByDefault = false
+  # ...
 ```
 
 ```bash tab="CLI"
@@ -138,22 +143,22 @@ _Optional, Default=```Host(`{{ normalize .Name }}`)```_
 
 The `defaultRule` option defines what routing rule to apply to a container if no rule is defined by a label.
 
-It must be a valid [Go template](https://golang.org/pkg/text/template/), and can use
-[sprig template functions](http://masterminds.github.io/sprig/).
+It must be a valid [Go template](https://pkg.go.dev/text/template/), and can use
+[sprig template functions](https://masterminds.github.io/sprig/).
 The container service name can be accessed with the `Name` identifier,
 and the template has access to all the labels defined on this container.
-
-```toml tab="File (TOML)"
-[providers.ecs]
-  defaultRule = "Host(`{{ .Name }}.{{ index .Labels \"customLabel\"}}`)"
-  # ...
-```
 
 ```yaml tab="File (YAML)"
 providers:
   ecs:
     defaultRule: "Host(`{{ .Name }}.{{ index .Labels \"customLabel\"}}`)"
     # ...
+```
+
+```toml tab="File (TOML)"
+[providers.ecs]
+  defaultRule = "Host(`{{ .Name }}.{{ index .Labels \"customLabel\"}}`)"
+  # ...
 ```
 
 ```bash tab="CLI"
@@ -167,17 +172,17 @@ _Optional, Default=15_
 
 Polling interval (in seconds).
 
-```toml tab="File (TOML)"
-[providers.ecs]
-  refreshSeconds = 15
-  # ...
-```
-
 ```yaml tab="File (YAML)"
 providers:
   ecs:
     refreshSeconds: 15
     # ...
+```
+
+```toml tab="File (TOML)"
+[providers.ecs]
+  refreshSeconds = 15
+  # ...
 ```
 
 ```bash tab="CLI"
@@ -198,13 +203,6 @@ If `accessKeyID` and `secretAccessKey` are not provided, credentials are resolve
 - Using shared credentials, determined by `AWS_PROFILE` and `AWS_SHARED_CREDENTIALS_FILE`, defaults to `default` and `~/.aws/credentials`.
 - Using EC2 instance role or ECS task role
 
-```toml tab="File (TOML)"
-[providers.ecs]
-  region = "us-east-1"
-  accessKeyID = "abc"
-  secretAccessKey = "123"
-```
-
 ```yaml tab="File (YAML)"
 providers:
   ecs:
@@ -212,6 +210,13 @@ providers:
     accessKeyID: "abc"
     secretAccessKey: "123"
     # ...
+```
+
+```toml tab="File (TOML)"
+[providers.ecs]
+  region = "us-east-1"
+  accessKeyID = "abc"
+  secretAccessKey = "123"
 ```
 
 ```bash tab="CLI"

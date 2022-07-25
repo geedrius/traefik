@@ -47,10 +47,21 @@ func TestRedirectSchemeHandler(t *testing.T) {
 			},
 			url: "http://foo",
 			headers: map[string]string{
-				"X-Forwarded-Proto": "https",
+				"X-Forwarded-Proto": "http",
 			},
 			expectedURL:    "https://foo",
 			expectedStatus: http.StatusFound,
+		},
+		{
+			desc: "HTTP to HTTPS, with X-Forwarded-Proto to HTTPS",
+			config: dynamic.RedirectScheme{
+				Scheme: "https",
+			},
+			url: "http://foo",
+			headers: map[string]string{
+				"X-Forwarded-Proto": "https",
+			},
+			expectedStatus: http.StatusOK,
 		},
 		{
 			desc: "HTTP with port to HTTPS without port",
@@ -127,8 +138,18 @@ func TestRedirectSchemeHandler(t *testing.T) {
 				Port:   "80",
 			},
 			url:            "http://foo:80",
-			expectedURL:    "http://foo",
-			expectedStatus: http.StatusFound,
+			expectedURL:    "http://foo:80",
+			expectedStatus: http.StatusOK,
+		},
+		{
+			desc: "to HTTPS 443",
+			config: dynamic.RedirectScheme{
+				Scheme: "https",
+				Port:   "443",
+			},
+			url:            "https://foo:443",
+			expectedURL:    "https://foo:443",
+			expectedStatus: http.StatusOK,
 		},
 		{
 			desc: "HTTP to wss",
@@ -248,6 +269,7 @@ func TestRedirectSchemeHandler(t *testing.T) {
 				if test.method != "" {
 					method = test.method
 				}
+
 				req := httptest.NewRequest(method, test.url, nil)
 
 				for k, v := range test.headers {

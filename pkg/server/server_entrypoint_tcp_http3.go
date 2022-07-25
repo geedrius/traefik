@@ -8,12 +8,11 @@ import (
 	"net"
 	"net/http"
 	"sync"
-	"time"
 
 	"github.com/lucas-clemente/quic-go/http3"
 	"github.com/traefik/traefik/v2/pkg/config/static"
 	"github.com/traefik/traefik/v2/pkg/log"
-	"github.com/traefik/traefik/v2/pkg/tcp"
+	tcprouter "github.com/traefik/traefik/v2/pkg/server/router/tcp"
 )
 
 type http3server struct {
@@ -26,13 +25,17 @@ type http3server struct {
 }
 
 func newHTTP3Server(ctx context.Context, configuration *static.EntryPoint, httpsServer *httpServer) (*http3server, error) {
-	if !configuration.EnableHTTP3 {
+	if configuration.HTTP3 == nil {
 		return nil, nil
+	}
+
+	if configuration.HTTP3.AdvertisedPort < 0 {
+		return nil, errors.New("advertised port must be greater than or equal to zero")
 	}
 
 	conn, err := net.ListenPacket("udp", configuration.GetAddress())
 	if err != nil {
-		return nil, fmt.Errorf("error while starting http3 listener: %w", err)
+		return nil, fmt.Errorf("starting listener: %w", err)
 	}
 
 	h3 := &http3server{
@@ -43,23 +46,17 @@ func newHTTP3Server(ctx context.Context, configuration *static.EntryPoint, https
 	}
 
 	h3.Server = &http3.Server{
-		Server: &http.Server{
-			Addr:         configuration.GetAddress(),
-			Handler:      httpsServer.Server.(*http.Server).Handler,
-			ErrorLog:     httpServerLogger,
-			ReadTimeout:  time.Duration(configuration.Transport.RespondingTimeouts.ReadTimeout),
-			WriteTimeout: time.Duration(configuration.Transport.RespondingTimeouts.WriteTimeout),
-			IdleTimeout:  time.Duration(configuration.Transport.RespondingTimeouts.IdleTimeout),
-			TLSConfig:    &tls.Config{GetConfigForClient: h3.getGetConfigForClient},
-		},
+		Addr:      configuration.GetAddress(),
+		Port:      configuration.HTTP3.AdvertisedPort,
+		Handler:   httpsServer.Server.(*http.Server).Handler,
+		TLSConfig: &tls.Config{GetConfigForClient: h3.getGetConfigForClient},
 	}
 
 	previousHandler := httpsServer.Server.(*http.Server).Handler
 
 	httpsServer.Server.(*http.Server).Handler = http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		err := h3.Server.SetQuicHeaders(rw.Header())
-		if err != nil {
-			log.FromContext(ctx).Errorf("failed to set HTTP3 headers: %v", err)
+		if err := h3.Server.SetQuicHeaders(rw.Header()); err != nil {
+			log.FromContext(ctx).Errorf("Failed to set HTTP3 headers: %v", err)
 		}
 
 		previousHandler.ServeHTTP(rw, req)
@@ -72,7 +69,7 @@ func (e *http3server) Start() error {
 	return e.Serve(e.http3conn)
 }
 
-func (e *http3server) Switch(rt *tcp.Router) {
+func (e *http3server) Switch(rt *tcprouter.Router) {
 	e.lock.Lock()
 	defer e.lock.Unlock()
 
@@ -84,4 +81,9 @@ func (e *http3server) getGetConfigForClient(info *tls.ClientHelloInfo) (*tls.Con
 	defer e.lock.RUnlock()
 
 	return e.getter(info)
+}
+
+func (e *http3server) Shutdown(_ context.Context) error {
+	// TODO: use e.Server.CloseGracefully() when available.
+	return e.Server.Close()
 }

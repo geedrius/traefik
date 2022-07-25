@@ -24,7 +24,6 @@ import (
 	"github.com/traefik/traefik/v2/pkg/tls"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
-	networkingv1beta1 "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/labels"
 )
 
@@ -37,15 +36,17 @@ const (
 
 // Provider holds configurations of the provider.
 type Provider struct {
-	Endpoint          string           `description:"Kubernetes server endpoint (required for external cluster client)." json:"endpoint,omitempty" toml:"endpoint,omitempty" yaml:"endpoint,omitempty"`
-	Token             string           `description:"Kubernetes bearer token (not needed for in-cluster client)." json:"token,omitempty" toml:"token,omitempty" yaml:"token,omitempty"`
-	CertAuthFilePath  string           `description:"Kubernetes certificate authority file path (not needed for in-cluster client)." json:"certAuthFilePath,omitempty" toml:"certAuthFilePath,omitempty" yaml:"certAuthFilePath,omitempty"`
-	Namespaces        []string         `description:"Kubernetes namespaces." json:"namespaces,omitempty" toml:"namespaces,omitempty" yaml:"namespaces,omitempty" export:"true"`
-	LabelSelector     string           `description:"Kubernetes Ingress label selector to use." json:"labelSelector,omitempty" toml:"labelSelector,omitempty" yaml:"labelSelector,omitempty" export:"true"`
-	IngressClass      string           `description:"Value of kubernetes.io/ingress.class annotation or IngressClass name to watch for." json:"ingressClass,omitempty" toml:"ingressClass,omitempty" yaml:"ingressClass,omitempty" export:"true"`
-	IngressEndpoint   *EndpointIngress `description:"Kubernetes Ingress Endpoint." json:"ingressEndpoint,omitempty" toml:"ingressEndpoint,omitempty" yaml:"ingressEndpoint,omitempty" export:"true"`
-	ThrottleDuration  ptypes.Duration  `description:"Ingress refresh throttle duration" json:"throttleDuration,omitempty" toml:"throttleDuration,omitempty" yaml:"throttleDuration,omitempty" export:"true"`
-	lastConfiguration safe.Safe
+	Endpoint                  string           `description:"Kubernetes server endpoint (required for external cluster client)." json:"endpoint,omitempty" toml:"endpoint,omitempty" yaml:"endpoint,omitempty"`
+	Token                     string           `description:"Kubernetes bearer token (not needed for in-cluster client)." json:"token,omitempty" toml:"token,omitempty" yaml:"token,omitempty" loggable:"false"`
+	CertAuthFilePath          string           `description:"Kubernetes certificate authority file path (not needed for in-cluster client)." json:"certAuthFilePath,omitempty" toml:"certAuthFilePath,omitempty" yaml:"certAuthFilePath,omitempty"`
+	Namespaces                []string         `description:"Kubernetes namespaces." json:"namespaces,omitempty" toml:"namespaces,omitempty" yaml:"namespaces,omitempty" export:"true"`
+	LabelSelector             string           `description:"Kubernetes Ingress label selector to use." json:"labelSelector,omitempty" toml:"labelSelector,omitempty" yaml:"labelSelector,omitempty" export:"true"`
+	IngressClass              string           `description:"Value of kubernetes.io/ingress.class annotation or IngressClass name to watch for." json:"ingressClass,omitempty" toml:"ingressClass,omitempty" yaml:"ingressClass,omitempty" export:"true"`
+	IngressEndpoint           *EndpointIngress `description:"Kubernetes Ingress Endpoint." json:"ingressEndpoint,omitempty" toml:"ingressEndpoint,omitempty" yaml:"ingressEndpoint,omitempty" export:"true"`
+	ThrottleDuration          ptypes.Duration  `description:"Ingress refresh throttle duration" json:"throttleDuration,omitempty" toml:"throttleDuration,omitempty" yaml:"throttleDuration,omitempty" export:"true"`
+	AllowEmptyServices        bool             `description:"Allow creation of services without endpoints." json:"allowEmptyServices,omitempty" toml:"allowEmptyServices,omitempty" yaml:"allowEmptyServices,omitempty" export:"true"`
+	AllowExternalNameServices bool             `description:"Allow ExternalName services." json:"allowExternalNameServices,omitempty" toml:"allowExternalNameServices,omitempty" yaml:"allowExternalNameServices,omitempty" export:"true"`
+	lastConfiguration         safe.Safe
 }
 
 // EndpointIngress holds the endpoint information for the Kubernetes provider.
@@ -105,6 +106,10 @@ func (p *Provider) Provide(configurationChan chan<- dynamic.Message, pool *safe.
 	k8sClient, err := p.newK8sClient(ctxLog)
 	if err != nil {
 		return err
+	}
+
+	if p.AllowExternalNameServices {
+		logger.Warn("ExternalName service loading is enabled, please ensure that this is expected (see AllowExternalNameServices option)")
 	}
 
 	pool.GoCtx(func(ctxPool context.Context) {
@@ -184,13 +189,9 @@ func (p *Provider) loadConfigurationFromIngresses(ctx context.Context, client Cl
 		TCP: &dynamic.TCPConfiguration{},
 	}
 
-	serverVersion, err := client.GetServerVersion()
-	if err != nil {
-		log.FromContext(ctx).Errorf("Failed to get server version: %v", err)
-		return conf
-	}
+	serverVersion := client.GetServerVersion()
 
-	var ingressClasses []*networkingv1beta1.IngressClass
+	var ingressClasses []*networkingv1.IngressClass
 
 	if supportsIngressClass(serverVersion) {
 		ics, err := client.GetIngressClasses()
@@ -232,12 +233,20 @@ func (p *Provider) loadConfigurationFromIngresses(ctx context.Context, client Cl
 				continue
 			}
 
-			service, err := loadService(client, ingress.Namespace, *ingress.Spec.DefaultBackend)
+			service, err := p.loadService(client, ingress.Namespace, *ingress.Spec.DefaultBackend)
 			if err != nil {
 				log.FromContext(ctx).
 					WithField("serviceName", ingress.Spec.DefaultBackend.Service.Name).
 					WithField("servicePort", ingress.Spec.DefaultBackend.Service.Port.String()).
 					Errorf("Cannot create service: %v", err)
+				continue
+			}
+
+			if len(service.LoadBalancer.Servers) == 0 && !p.AllowEmptyServices {
+				log.FromContext(ctx).
+					WithField("serviceName", ingress.Spec.DefaultBackend.Service.Name).
+					WithField("servicePort", ingress.Spec.DefaultBackend.Service.Port.String()).
+					Errorf("Skipping service: no endpoints found")
 				continue
 			}
 
@@ -269,12 +278,20 @@ func (p *Provider) loadConfigurationFromIngresses(ctx context.Context, client Cl
 			}
 
 			for _, pa := range rule.HTTP.Paths {
-				service, err := loadService(client, ingress.Namespace, pa.Backend)
+				service, err := p.loadService(client, ingress.Namespace, pa.Backend)
 				if err != nil {
 					log.FromContext(ctx).
 						WithField("serviceName", pa.Backend.Service.Name).
 						WithField("servicePort", pa.Backend.Service.Port.String()).
 						Errorf("Cannot create service: %v", err)
+					continue
+				}
+
+				if len(service.LoadBalancer.Servers) == 0 && !p.AllowEmptyServices {
+					log.FromContext(ctx).
+						WithField("serviceName", pa.Backend.Service.Name).
+						WithField("servicePort", pa.Backend.Service.Port.String()).
+						Errorf("Skipping service: no endpoints found")
 					continue
 				}
 
@@ -361,7 +378,7 @@ func (p *Provider) updateIngressStatus(ing *networkingv1.Ingress, k8sClient Clie
 	return k8sClient.UpdateIngressStatus(ing, service.Status.LoadBalancer.Ingress)
 }
 
-func (p *Provider) shouldProcessIngress(ingress *networkingv1.Ingress, ingressClasses []*networkingv1beta1.IngressClass) bool {
+func (p *Provider) shouldProcessIngress(ingress *networkingv1.Ingress, ingressClasses []*networkingv1.IngressClass) bool {
 	// configuration through the new kubernetes ingressClass
 	if ingress.Spec.IngressClassName != nil {
 		for _, ic := range ingressClasses {
@@ -470,7 +487,7 @@ func getTLSConfig(tlsConfigs map[string]*tls.CertAndStores) []*tls.CertAndStores
 	return configs
 }
 
-func loadService(client Client, namespace string, backend networkingv1.IngressBackend) (*dynamic.Service, error) {
+func (p *Provider) loadService(client Client, namespace string, backend networkingv1.IngressBackend) (*dynamic.Service, error) {
 	service, exists, err := client.GetService(namespace, backend.Service.Name)
 	if err != nil {
 		return nil, err
@@ -478,6 +495,10 @@ func loadService(client Client, namespace string, backend networkingv1.IngressBa
 
 	if !exists {
 		return nil, errors.New("service not found")
+	}
+
+	if !p.AllowExternalNameServices && service.Spec.Type == corev1.ServiceTypeExternalName {
+		return nil, fmt.Errorf("externalName services not allowed: %s/%s", namespace, backend.Service.Name)
 	}
 
 	var portName string
@@ -509,8 +530,13 @@ func loadService(client Client, namespace string, backend networkingv1.IngressBa
 
 	if svcConfig != nil && svcConfig.Service != nil {
 		svc.LoadBalancer.Sticky = svcConfig.Service.Sticky
+
 		if svcConfig.Service.PassHostHeader != nil {
 			svc.LoadBalancer.PassHostHeader = svcConfig.Service.PassHostHeader
+		}
+
+		if svcConfig.Service.ServersTransport != "" {
+			svc.LoadBalancer.ServersTransport = svcConfig.Service.ServersTransport
 		}
 	}
 
@@ -534,12 +560,8 @@ func loadService(client Client, namespace string, backend networkingv1.IngressBa
 		return nil, errors.New("endpoints not found")
 	}
 
-	if len(endpoints.Subsets) == 0 {
-		return nil, errors.New("subset not found")
-	}
-
-	var port int32
 	for _, subset := range endpoints.Subsets {
+		var port int32
 		for _, p := range subset.Ports {
 			if portName == p.Name {
 				port = p.Port
@@ -560,10 +582,6 @@ func loadService(client Client, namespace string, backend networkingv1.IngressBa
 				URL: fmt.Sprintf("%s://%s", protocol, hostPort),
 			})
 		}
-	}
-
-	if len(svc.LoadBalancer.Servers) == 0 {
-		return nil, errors.New("no valid subset found")
 	}
 
 	return svc, nil

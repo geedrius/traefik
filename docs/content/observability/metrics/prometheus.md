@@ -1,15 +1,20 @@
+---
+title: "Traefik Prometheus Documentation"
+description: "Traefik supports several metrics backends, including Prometheus. Learn how to implement it for observability in Traefik Proxy. Read the technical documentation."
+---
+
 # Prometheus
 
 To enable the Prometheus:
 
-```toml tab="File (TOML)"
-[metrics]
-  [metrics.prometheus]
-```
-
 ```yaml tab="File (YAML)"
 metrics:
   prometheus: {}
+```
+
+```toml tab="File (TOML)"
+[metrics]
+  [metrics.prometheus]
 ```
 
 ```bash tab="CLI"
@@ -22,12 +27,6 @@ _Optional, Default="0.100000, 0.300000, 1.200000, 5.000000"_
 
 Buckets for latency metrics.
 
-```toml tab="File (TOML)"
-[metrics]
-  [metrics.prometheus]
-    buckets = [0.1,0.3,1.2,5.0]
-```
-
 ```yaml tab="File (YAML)"
 metrics:
   prometheus:
@@ -38,8 +37,14 @@ metrics:
       - 5.0
 ```
 
+```toml tab="File (TOML)"
+[metrics]
+  [metrics.prometheus]
+    buckets = [0.1,0.3,1.2,5.0]
+```
+
 ```bash tab="CLI"
---metrics.prometheus.buckets=0.100000, 0.300000, 1.200000, 5.000000
+--metrics.prometheus.buckets=0.1,0.3,1.2,5.0
 ```
 
 #### `addEntryPointsLabels`
@@ -48,20 +53,42 @@ _Optional, Default=true_
 
 Enable metrics on entry points.
 
-```toml tab="File (TOML)"
-[metrics]
-  [metrics.prometheus]
-    addEntryPointsLabels = true
-```
-
 ```yaml tab="File (YAML)"
 metrics:
   prometheus:
     addEntryPointsLabels: true
 ```
 
+```toml tab="File (TOML)"
+[metrics]
+  [metrics.prometheus]
+    addEntryPointsLabels = true
+```
+
 ```bash tab="CLI"
 --metrics.prometheus.addEntryPointsLabels=true
+```
+
+#### `addRoutersLabels`
+
+_Optional, Default=false_
+
+Enable metrics on routers.
+
+```yaml tab="File (YAML)"
+metrics:
+  prometheus:
+    addRoutersLabels: true
+```
+
+```toml tab="File (TOML)"
+[metrics]
+  [metrics.prometheus]
+    addRoutersLabels = true
+```
+
+```bash tab="CLI"
+--metrics.prometheus.addrouterslabels=true
 ```
 
 #### `addServicesLabels`
@@ -70,16 +97,16 @@ _Optional, Default=true_
 
 Enable metrics on services.
 
-```toml tab="File (TOML)"
-[metrics]
-  [metrics.prometheus]
-    addServicesLabels = true
-```
-
 ```yaml tab="File (YAML)"
 metrics:
   prometheus:
     addServicesLabels: true
+```
+
+```toml tab="File (TOML)"
+[metrics]
+  [metrics.prometheus]
+    addServicesLabels = true
 ```
 
 ```bash tab="CLI"
@@ -92,6 +119,16 @@ _Optional, Default=traefik_
 
 Entry point used to expose metrics.
 
+```yaml tab="File (YAML)"
+entryPoints:
+  metrics:
+    address: :8082
+
+metrics:
+  prometheus:
+    entryPoint: metrics
+```
+
 ```toml tab="File (TOML)"
 [entryPoints]
   [entryPoints.metrics]
@@ -100,16 +137,6 @@ Entry point used to expose metrics.
 [metrics]
   [metrics.prometheus]
     entryPoint = "metrics"
-```
-
-```yaml tab="File (YAML)"
-entryPoints:
-  metrics:
-    address: ":8082"
-
-metrics:
-  prometheus:
-    entryPoint: metrics
 ```
 
 ```bash tab="CLI"
@@ -123,16 +150,16 @@ _Optional, Default=false_
 
 If `manualRouting` is `true`, it disables the default internal router in order to allow one to create a custom router for the `prometheus@internal` service.
 
-```toml tab="File (TOML)"
-[metrics]
-  [metrics.prometheus]
-    manualRouting = true
-```
-
 ```yaml tab="File (YAML)"
 metrics:
   prometheus:
     manualRouting: true
+```
+
+```toml tab="File (TOML)"
+[metrics]
+  [metrics.prometheus]
+    manualRouting = true
 ```
 
 ```bash tab="CLI"

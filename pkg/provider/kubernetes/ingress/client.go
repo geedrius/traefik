@@ -11,6 +11,7 @@ import (
 
 	"github.com/hashicorp/go-version"
 	"github.com/traefik/traefik/v2/pkg/log"
+	"github.com/traefik/traefik/v2/pkg/provider/kubernetes/k8s"
 	traefikversion "github.com/traefik/traefik/v2/pkg/version"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -34,34 +35,18 @@ type marshaler interface {
 	Marshal() ([]byte, error)
 }
 
-type resourceEventHandler struct {
-	ev chan<- interface{}
-}
-
-func (reh *resourceEventHandler) OnAdd(obj interface{}) {
-	eventHandlerFunc(reh.ev, obj)
-}
-
-func (reh *resourceEventHandler) OnUpdate(oldObj, newObj interface{}) {
-	eventHandlerFunc(reh.ev, newObj)
-}
-
-func (reh *resourceEventHandler) OnDelete(obj interface{}) {
-	eventHandlerFunc(reh.ev, obj)
-}
-
 // Client is a client for the Provider master.
 // WatchAll starts the watch of the Provider resources and updates the stores.
 // The stores can then be accessed via the Get* functions.
 type Client interface {
 	WatchAll(namespaces []string, stopCh <-chan struct{}) (<-chan interface{}, error)
 	GetIngresses() []*networkingv1.Ingress
-	GetIngressClasses() ([]*networkingv1beta1.IngressClass, error)
+	GetIngressClasses() ([]*networkingv1.IngressClass, error)
 	GetService(namespace, name string) (*corev1.Service, bool, error)
 	GetSecret(namespace, name string) (*corev1.Secret, bool, error)
 	GetEndpoints(namespace, name string) (*corev1.Endpoints, bool, error)
 	UpdateIngressStatus(ing *networkingv1.Ingress, ingStatus []corev1.LoadBalancerIngress) error
-	GetServerVersion() (*version.Version, error)
+	GetServerVersion() *version.Version
 }
 
 type clientWrapper struct {
@@ -73,6 +58,7 @@ type clientWrapper struct {
 	ingressLabelSelector string
 	isNamespaceAll       bool
 	watchedNamespaces    []string
+	serverVersion        *version.Version
 }
 
 // newInClusterClient returns a new Provider client that is expected to run
@@ -150,8 +136,21 @@ func newClientImpl(clientset kubernetes.Interface) *clientWrapper {
 
 // WatchAll starts namespace-specific controllers for all relevant kinds.
 func (c *clientWrapper) WatchAll(namespaces []string, stopCh <-chan struct{}) (<-chan interface{}, error) {
+	// Get and store the serverVersion for future use.
+	serverVersionInfo, err := c.clientset.Discovery().ServerVersion()
+	if err != nil {
+		return nil, fmt.Errorf("could not retrieve server version: %w", err)
+	}
+
+	serverVersion, err := version.NewVersion(serverVersionInfo.GitVersion)
+	if err != nil {
+		return nil, fmt.Errorf("could not parse server version: %w", err)
+	}
+
+	c.serverVersion = serverVersion
+
 	eventCh := make(chan interface{}, 1)
-	eventHandler := &resourceEventHandler{eventCh}
+	eventHandler := &k8s.ResourceEventHandler{Ev: eventCh}
 
 	if len(namespaces) == 0 {
 		namespaces = []string{metav1.NamespaceAll}
@@ -166,11 +165,6 @@ func (c *clientWrapper) WatchAll(namespaces []string, stopCh <-chan struct{}) (<
 
 	matchesLabelSelector := func(opts *metav1.ListOptions) {
 		opts.LabelSelector = c.ingressLabelSelector
-	}
-
-	serverVersion, err := c.GetServerVersion()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get server version: %w", err)
 	}
 
 	for _, ns := range namespaces {
@@ -222,7 +216,13 @@ func (c *clientWrapper) WatchAll(namespaces []string, stopCh <-chan struct{}) (<
 
 	if supportsIngressClass(serverVersion) {
 		c.clusterFactory = informers.NewSharedInformerFactoryWithOptions(c.clientset, resyncPeriod)
-		c.clusterFactory.Networking().V1beta1().IngressClasses().Informer().AddEventHandler(eventHandler)
+
+		if supportsNetworkingV1Ingress(serverVersion) {
+			c.clusterFactory.Networking().V1().IngressClasses().Informer().AddEventHandler(eventHandler)
+		} else {
+			c.clusterFactory.Networking().V1beta1().IngressClasses().Informer().AddEventHandler(eventHandler)
+		}
+
 		c.clusterFactory.Start(stopCh)
 
 		for typ, ok := range c.clusterFactory.WaitForCacheSync(stopCh) {
@@ -239,13 +239,7 @@ func (c *clientWrapper) WatchAll(namespaces []string, stopCh <-chan struct{}) (<
 func (c *clientWrapper) GetIngresses() []*networkingv1.Ingress {
 	var results []*networkingv1.Ingress
 
-	serverVersion, err := c.GetServerVersion()
-	if err != nil {
-		log.Errorf("Failed to get server version: %v", err)
-		return results
-	}
-
-	isNetworkingV1Supported := supportsNetworkingV1Ingress(serverVersion)
+	isNetworkingV1Supported := supportsNetworkingV1Ingress(c.serverVersion)
 
 	for ns, factory := range c.factoriesIngress {
 		if isNetworkingV1Supported {
@@ -289,6 +283,21 @@ func toNetworkingV1(ing marshaler) (*networkingv1.Ingress, error) {
 	}
 
 	ni := &networkingv1.Ingress{}
+	err = ni.Unmarshal(data)
+	if err != nil {
+		return nil, err
+	}
+
+	return ni, nil
+}
+
+func toNetworkingV1IngressClass(ing marshaler) (*networkingv1.IngressClass, error) {
+	data, err := ing.Marshal()
+	if err != nil {
+		return nil, err
+	}
+
+	ni := &networkingv1.IngressClass{}
 	err = ni.Unmarshal(data)
 	if err != nil {
 		return nil, err
@@ -348,13 +357,7 @@ func (c *clientWrapper) UpdateIngressStatus(src *networkingv1.Ingress, ingStatus
 		return fmt.Errorf("failed to get ingress %s/%s: namespace is not within watched namespaces", src.Namespace, src.Name)
 	}
 
-	serverVersion, err := c.GetServerVersion()
-	if err != nil {
-		log.WithoutContext().Errorf("Failed to get server version: %v", err)
-		return err
-	}
-
-	if !supportsNetworkingV1Ingress(serverVersion) {
+	if !supportsNetworkingV1Ingress(c.serverVersion) {
 		return c.updateIngressStatusOld(src, ingStatus)
 	}
 
@@ -465,17 +468,37 @@ func (c *clientWrapper) GetSecret(namespace, name string) (*corev1.Secret, bool,
 	return secret, exist, err
 }
 
-func (c *clientWrapper) GetIngressClasses() ([]*networkingv1beta1.IngressClass, error) {
+func (c *clientWrapper) GetIngressClasses() ([]*networkingv1.IngressClass, error) {
 	if c.clusterFactory == nil {
 		return nil, errors.New("cluster factory not loaded")
 	}
 
-	ingressClasses, err := c.clusterFactory.Networking().V1beta1().IngressClasses().Lister().List(labels.Everything())
+	var ics []*networkingv1.IngressClass
+	if !supportsNetworkingV1Ingress(c.serverVersion) {
+		ingressClasses, err := c.clusterFactory.Networking().V1beta1().IngressClasses().Lister().List(labels.Everything())
+		if err != nil {
+			return nil, err
+		}
+
+		for _, ic := range ingressClasses {
+			if ic.Spec.Controller == traefikDefaultIngressClassController {
+				icN, err := toNetworkingV1IngressClass(ic)
+				if err != nil {
+					log.WithoutContext().Errorf("Failed to convert ingress class %s from networking/v1beta1 to networking/v1: %v", ic.Name, err)
+					continue
+				}
+				ics = append(ics, icN)
+			}
+		}
+
+		return ics, nil
+	}
+
+	ingressClasses, err := c.clusterFactory.Networking().V1().IngressClasses().Lister().List(labels.Everything())
 	if err != nil {
 		return nil, err
 	}
 
-	var ics []*networkingv1beta1.IngressClass
 	for _, ic := range ingressClasses {
 		if ic.Spec.Controller == traefikDefaultIngressClassController {
 			ics = append(ics, ic)
@@ -499,23 +522,8 @@ func (c *clientWrapper) lookupNamespace(ns string) string {
 }
 
 // GetServerVersion returns the cluster server version, or an error.
-func (c *clientWrapper) GetServerVersion() (*version.Version, error) {
-	serverVersion, err := c.clientset.Discovery().ServerVersion()
-	if err != nil {
-		return nil, fmt.Errorf("could not retrieve server version: %w", err)
-	}
-
-	return version.NewVersion(serverVersion.GitVersion)
-}
-
-// eventHandlerFunc will pass the obj on to the events channel or drop it.
-// This is so passing the events along won't block in the case of high volume.
-// The events are only used for signaling anyway so dropping a few is ok.
-func eventHandlerFunc(events chan<- interface{}, obj interface{}) {
-	select {
-	case events <- obj:
-	default:
-	}
+func (c *clientWrapper) GetServerVersion() *version.Version {
+	return c.serverVersion
 }
 
 // translateNotFoundError will translate a "not found" error to a boolean return
@@ -550,8 +558,8 @@ func supportsIngressClass(serverVersion *version.Version) bool {
 }
 
 // filterIngressClassByName return a slice containing ingressclasses with the correct name.
-func filterIngressClassByName(ingressClassName string, ics []*networkingv1beta1.IngressClass) []*networkingv1beta1.IngressClass {
-	var ingressClasses []*networkingv1beta1.IngressClass
+func filterIngressClassByName(ingressClassName string, ics []*networkingv1.IngressClass) []*networkingv1.IngressClass {
+	var ingressClasses []*networkingv1.IngressClass
 
 	for _, ic := range ics {
 		if ic.Name == ingressClassName {

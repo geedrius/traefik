@@ -4,21 +4,22 @@ import (
 	"context"
 	"crypto/x509"
 	"encoding/json"
+	"fmt"
 	stdlog "log"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"sort"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/coreos/go-systemd/daemon"
-	assetfs "github.com/elazarl/go-bindata-assetfs"
 	"github.com/go-acme/lego/v4/challenge"
 	gokitmetrics "github.com/go-kit/kit/metrics"
 	"github.com/sirupsen/logrus"
 	"github.com/traefik/paerser/cli"
-	"github.com/traefik/traefik/v2/autogen/genstatic"
 	"github.com/traefik/traefik/v2/cmd"
 	"github.com/traefik/traefik/v2/cmd/healthcheck"
 	cmdVersion "github.com/traefik/traefik/v2/cmd/version"
@@ -33,6 +34,7 @@ import (
 	"github.com/traefik/traefik/v2/pkg/pilot"
 	"github.com/traefik/traefik/v2/pkg/provider/acme"
 	"github.com/traefik/traefik/v2/pkg/provider/aggregator"
+	"github.com/traefik/traefik/v2/pkg/provider/hub"
 	"github.com/traefik/traefik/v2/pkg/provider/traefik"
 	"github.com/traefik/traefik/v2/pkg/safe"
 	"github.com/traefik/traefik/v2/pkg/server"
@@ -106,10 +108,6 @@ func runCmd(staticConfiguration *static.Configuration) error {
 		log.WithoutContext().Debugf("Static configuration loaded %s", string(jsonConf))
 	}
 
-	if staticConfiguration.API != nil && staticConfiguration.API.Dashboard {
-		staticConfiguration.API.DashboardAssets = &assetfs.AssetFS{Asset: genstatic.Asset, AssetInfo: genstatic.AssetInfo, AssetDir: genstatic.AssetDir, Prefix: "static"}
-	}
-
 	if staticConfiguration.Global.CheckNewVersion {
 		checkNewVersion()
 	}
@@ -121,13 +119,7 @@ func runCmd(staticConfiguration *static.Configuration) error {
 		return err
 	}
 
-	ctx := cmd.ContextWithSignal(context.Background())
-
-	if staticConfiguration.Experimental != nil && staticConfiguration.Experimental.DevPlugin != nil {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, 30*time.Minute)
-		defer cancel()
-	}
+	ctx, _ := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 
 	if staticConfiguration.Ping != nil {
 		staticConfiguration.Ping.WithContext(ctx)
@@ -189,8 +181,7 @@ func setupServer(staticConfiguration *static.Configuration) (*server.Server, err
 	tlsManager := traefiktls.NewManager()
 	httpChallengeProvider := acme.NewChallengeHTTP()
 
-	// we need to wait at least 2 times the ProvidersThrottleDuration to be sure to handle the challenge.
-	tlsChallengeProvider := acme.NewChallengeTLSALPN(time.Duration(staticConfiguration.Providers.ProvidersThrottleDuration) * 2)
+	tlsChallengeProvider := acme.NewChallengeTLSALPN()
 	err = providerAggregator.AddProvider(tlsChallengeProvider)
 	if err != nil {
 		return nil, err
@@ -200,7 +191,7 @@ func setupServer(staticConfiguration *static.Configuration) (*server.Server, err
 
 	// Entrypoints
 
-	serverEntryPointsTCP, err := server.NewTCPEntryPoints(staticConfiguration.EntryPoints)
+	serverEntryPointsTCP, err := server.NewTCPEntryPoints(staticConfiguration.EntryPoints, staticConfiguration.HostResolver)
 	if err != nil {
 		return nil, err
 	}
@@ -225,7 +216,7 @@ func setupServer(staticConfiguration *static.Configuration) (*server.Server, err
 	}
 
 	if staticConfiguration.Pilot != nil {
-		version.PilotEnabled = staticConfiguration.Pilot.Dashboard
+		log.WithoutContext().Warn("Traefik Pilot is deprecated and will be removed soon. Please check our Blog for migration instructions later this year.")
 	}
 
 	// Plugins
@@ -233,6 +224,33 @@ func setupServer(staticConfiguration *static.Configuration) (*server.Server, err
 	pluginBuilder, err := createPluginBuilder(staticConfiguration)
 	if err != nil {
 		return nil, err
+	}
+
+	// Providers plugins
+
+	for name, conf := range staticConfiguration.Providers.Plugin {
+		p, err := pluginBuilder.BuildProvider(name, conf)
+		if err != nil {
+			return nil, fmt.Errorf("plugin: failed to build provider: %w", err)
+		}
+
+		err = providerAggregator.AddProvider(p)
+		if err != nil {
+			return nil, fmt.Errorf("plugin: failed to add provider: %w", err)
+		}
+	}
+
+	// Traefik Hub
+
+	if staticConfiguration.Hub != nil {
+		if err = providerAggregator.AddProvider(staticConfiguration.Hub); err != nil {
+			return nil, fmt.Errorf("adding Traefik Hub provider: %w", err)
+		}
+
+		// API is mandatory for Traefik Hub to access the dynamic configuration.
+		if staticConfiguration.API == nil {
+			staticConfiguration.API = &static.API{}
+		}
 	}
 
 	// Metrics
@@ -253,14 +271,13 @@ func setupServer(staticConfiguration *static.Configuration) (*server.Server, err
 
 	accessLog := setupAccessLog(staticConfiguration.AccessLog)
 	chainBuilder := middleware.NewChainBuilder(*staticConfiguration, metricsRegistry, accessLog)
-	routerFactory := server.NewRouterFactory(*staticConfiguration, managerFactory, tlsManager, chainBuilder, pluginBuilder)
+	routerFactory := server.NewRouterFactory(*staticConfiguration, managerFactory, tlsManager, chainBuilder, pluginBuilder, metricsRegistry)
 
 	// Watcher
 
 	watcher := server.NewConfigurationWatcher(
 		routinesPool,
 		providerAggregator,
-		time.Duration(staticConfiguration.Providers.ProvidersThrottleDuration),
 		getDefaultsEntrypoints(staticConfiguration),
 		"internal",
 	)
@@ -318,7 +335,10 @@ func setupServer(staticConfiguration *static.Configuration) (*server.Server, err
 				continue
 			}
 
-			if _, ok := resolverNames[rt.TLS.CertResolver]; !ok {
+			if _, ok := resolverNames[rt.TLS.CertResolver]; !ok &&
+				// "traefik-hub" is an allowed certificate resolver name in a Traefik Hub Experimental feature context.
+				// It is used to activate its own certificate resolution, even though it is not a "classical" traefik certificate resolver.
+				(staticConfiguration.Hub == nil || rt.TLS.CertResolver != "traefik-hub") {
 				log.WithoutContext().Errorf("the router %s uses a non-existent resolver: %s", rtName, rt.TLS.CertResolver)
 			}
 		}
@@ -341,6 +361,11 @@ func getHTTPChallengeHandler(acmeProviders []*acme.Provider, httpChallengeProvid
 func getDefaultsEntrypoints(staticConfiguration *static.Configuration) []string {
 	var defaultEntryPoints []string
 	for name, cfg := range staticConfiguration.EntryPoints {
+		// Traefik Hub entryPoint should not be part of the set of default entryPoints.
+		if hub.APIEntrypoint == name || hub.TunnelEntrypoint == name {
+			continue
+		}
+
 		protocol, err := cfg.GetProtocol()
 		if err != nil {
 			// Should never happen because Traefik should not start if protocol is invalid.
@@ -443,6 +468,16 @@ func registerMetricClients(metricsConfig *types.Metrics) []metrics.Registry {
 		registries = append(registries, metrics.RegisterInfluxDB(ctx, metricsConfig.InfluxDB))
 		log.FromContext(ctx).Debugf("Configured InfluxDB metrics: pushing to %s once every %s",
 			metricsConfig.InfluxDB.Address, metricsConfig.InfluxDB.PushInterval)
+	}
+
+	if metricsConfig.InfluxDB2 != nil {
+		ctx := log.With(context.Background(), log.Str(log.MetricsProviderName, "influxdb2"))
+		influxDB2Register := metrics.RegisterInfluxDB2(ctx, metricsConfig.InfluxDB2)
+		if influxDB2Register != nil {
+			registries = append(registries, influxDB2Register)
+			log.FromContext(ctx).Debugf("Configured InfluxDB v2 metrics: pushing to %s (%s org/%s bucket) once every %s",
+				metricsConfig.InfluxDB2.Address, metricsConfig.InfluxDB2.Org, metricsConfig.InfluxDB2.Bucket, metricsConfig.InfluxDB2.PushInterval)
+		}
 	}
 
 	return registries

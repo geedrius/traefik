@@ -15,6 +15,7 @@ import (
 	"github.com/traefik/traefik/v2/pkg/config/static"
 	"github.com/traefik/traefik/v2/pkg/provider/docker"
 	"github.com/traefik/traefik/v2/pkg/provider/file"
+	"github.com/traefik/traefik/v2/pkg/provider/hub"
 	"github.com/traefik/traefik/v2/pkg/provider/kubernetes/crd"
 	"github.com/traefik/traefik/v2/pkg/provider/kubernetes/ingress"
 	"github.com/traefik/traefik/v2/pkg/provider/marathon"
@@ -171,6 +172,31 @@ func TestHandler_Overview(t *testing.T) {
 						Status: runtime.StatusDisabled,
 					},
 				},
+				TCPMiddlewares: map[string]*runtime.TCPMiddlewareInfo{
+					"ipwhitelist1@myprovider": {
+						TCPMiddleware: &dynamic.TCPMiddleware{
+							IPWhiteList: &dynamic.TCPIPWhiteList{
+								SourceRange: []string{"127.0.0.1/32"},
+							},
+						},
+						Status: runtime.StatusEnabled,
+					},
+					"ipwhitelist2@myprovider": {
+						TCPMiddleware: &dynamic.TCPMiddleware{
+							IPWhiteList: &dynamic.TCPIPWhiteList{
+								SourceRange: []string{"127.0.0.1/32"},
+							},
+						},
+					},
+					"ipwhitelist3@myprovider": {
+						TCPMiddleware: &dynamic.TCPMiddleware{
+							IPWhiteList: &dynamic.TCPIPWhiteList{
+								SourceRange: []string{"127.0.0.1/32"},
+							},
+						},
+						Status: runtime.StatusDisabled,
+					},
+				},
 				TCPRouters: map[string]*runtime.TCPRouterInfo{
 					"tcpbar@myprovider": {
 						TCPRouter: &dynamic.TCPRouter{
@@ -217,6 +243,9 @@ func TestHandler_Overview(t *testing.T) {
 					KubernetesCRD:     &crd.Provider{},
 					Rest:              &rest.Provider{},
 					Rancher:           &rancher.Provider{},
+					Plugin: map[string]static.PluginConf{
+						"test": map[string]interface{}{},
+					},
 				},
 			},
 			confDyn: runtime.Configuration{},
@@ -237,6 +266,7 @@ func TestHandler_Overview(t *testing.T) {
 				Tracing: &static.Tracing{
 					Jaeger: &jaeger.Config{},
 				},
+				Hub: &hub.Provider{},
 			},
 			confDyn: runtime.Configuration{},
 			expected: expected{

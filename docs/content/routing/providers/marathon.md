@@ -1,3 +1,8 @@
+---
+title: "Traefik Routing Configuration for Marathon"
+description: "Traefik Proxy can be configured to use Marathon as a provider. Read the technical documentation to understand the Traefik routing configuration for Marathon."
+---
+
 # Traefik & Marathon
 
 Traefik can be configured to use Marathon as a provider.
@@ -293,7 +298,7 @@ For example, to change the passHostHeader behavior, you'd add the label `"traefi
 
 You can declare pieces of middleware using labels starting with `traefik.http.middlewares.{middleware-name-of-your-choice}.`, followed by the middleware type/options.
 
-For example, to declare a middleware [`redirectscheme`](../../middlewares/redirectscheme.md) named `my-redirect`, you'd write `"traefik.http.middlewares.my-redirect.redirectscheme.scheme": "https"`.
+For example, to declare a middleware [`redirectscheme`](../../middlewares/http/redirectscheme.md) named `my-redirect`, you'd write `"traefik.http.middlewares.my-redirect.redirectscheme.scheme": "https"`.
 
 More information about available middlewares in the dedicated [middlewares section](../../middlewares/overview.md).
 
@@ -410,6 +415,14 @@ You can declare TCP Routers and/or Services using labels.
     
     ```json
     "traefik.tcp.routers.mytcprouter.tls.passthrough": "true"
+    ```
+
+??? info "`traefik.tcp.routers.<router_name>.priority`"
+
+    See [priority](../routers/index.md#priority_1) for more information.
+    
+    ```json
+    "traefik.tcp.routers.myrouter.priority": "42"
     ```
 
 #### TCP Services

@@ -18,7 +18,7 @@ type clientMock struct {
 	services       []*corev1.Service
 	secrets        []*corev1.Secret
 	endpoints      []*corev1.Endpoints
-	ingressClasses []*networkingv1beta1.IngressClass
+	ingressClasses []*networkingv1.IngressClass
 
 	serverVersion *version.Version
 
@@ -60,6 +60,12 @@ func newClientMock(serverVersion string, paths ...string) clientMock {
 			case *networkingv1.Ingress:
 				c.ingresses = append(c.ingresses, o)
 			case *networkingv1beta1.IngressClass:
+				ic, err := toNetworkingV1IngressClass(o)
+				if err != nil {
+					panic(err)
+				}
+				c.ingressClasses = append(c.ingressClasses, ic)
+			case *networkingv1.IngressClass:
 				c.ingressClasses = append(c.ingressClasses, o)
 			default:
 				panic(fmt.Sprintf("Unknown runtime object %+v %T", o, o))
@@ -74,8 +80,8 @@ func (c clientMock) GetIngresses() []*networkingv1.Ingress {
 	return c.ingresses
 }
 
-func (c clientMock) GetServerVersion() (*version.Version, error) {
-	return c.serverVersion, nil
+func (c clientMock) GetServerVersion() *version.Version {
+	return c.serverVersion
 }
 
 func (c clientMock) GetService(namespace, name string) (*corev1.Service, bool, error) {
@@ -118,7 +124,7 @@ func (c clientMock) GetSecret(namespace, name string) (*corev1.Secret, bool, err
 	return nil, false, nil
 }
 
-func (c clientMock) GetIngressClasses() ([]*networkingv1beta1.IngressClass, error) {
+func (c clientMock) GetIngressClasses() ([]*networkingv1.IngressClass, error) {
 	return c.ingressClasses, nil
 }
 

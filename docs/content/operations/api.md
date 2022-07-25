@@ -1,3 +1,8 @@
+---
+title: "Traefik API Documentation"
+description: "Traefik Proxy exposes information through API handlers. Learn about the security, configuration, and endpoints of APIs. Read the technical documentation."
+---
+
 # API
 
 Traefik exposes a number of information through an API handler, such as the configuration of all routers, services, middlewares, etc.
@@ -26,14 +31,14 @@ If you enable the API, a new special `service` named `api@internal` is created a
 To enable the API handler, use the following option on the
 [static configuration](../getting-started/configuration-overview.md#the-static-configuration):
 
-```toml tab="File (TOML)"
-# Static Configuration
-[api]
-```
-
 ```yaml tab="File (YAML)"
 # Static Configuration
 api: {}
+```
+
+```toml tab="File (TOML)"
+# Static Configuration
+[api]
 ```
 
 ```bash tab="CLI"
@@ -74,14 +79,14 @@ Enable the API in `insecure` mode, which means that the API will be available di
 !!! info
     If the entryPoint named `traefik` is not configured, it will be automatically created on port 8080.
 
-```toml tab="File (TOML)"
-[api]
-  insecure = true
-```
-
 ```yaml tab="File (YAML)"
 api:
   insecure: true
+```
+
+```toml tab="File (TOML)"
+[api]
+  insecure = true
 ```
 
 ```bash tab="CLI"
@@ -94,14 +99,14 @@ _Optional, Default=true_
 
 Enable the dashboard. More about the dashboard features [here](./dashboard.md).
 
-```toml tab="File (TOML)"
-[api]
-  dashboard = true
-```
-
 ```yaml tab="File (YAML)"
 api:
   dashboard: true
+```
+
+```toml tab="File (TOML)"
+[api]
+  dashboard = true
 ```
 
 ```bash tab="CLI"
@@ -117,14 +122,14 @@ _Optional, Default=false_
 
 Enable additional [endpoints](./api.md#endpoints) for debugging and profiling, served under `/debug/`.
 
-```toml tab="File (TOML)"
-[api]
-  debug = true
-```
-
 ```yaml tab="File (YAML)"
 api:
   debug: true
+```
+
+```toml tab="File (TOML)"
+[api]
+  debug = true
 ```
 
 ```bash tab="CLI"
@@ -147,9 +152,16 @@ All the following endpoints must be accessed with a `GET` HTTP request.
 | `/api/tcp/routers/{name}`      | Returns the information of the TCP router specified by `name`.                              |
 | `/api/tcp/services`            | Lists all the TCP services information.                                                     |
 | `/api/tcp/services/{name}`     | Returns the information of the TCP service specified by `name`.                             |
+| `/api/tcp/middlewares`         | Lists all the TCP middlewares information.                                                  |
+| `/api/tcp/middlewares/{name}`  | Returns the information of the TCP middleware specified by `name`.                          |
+| `/api/udp/routers`             | Lists all the UDP routers information.                                                      |
+| `/api/udp/routers/{name}`      | Returns the information of the UDP router specified by `name`.                              |
+| `/api/udp/services`            | Lists all the UDP services information.                                                     |
+| `/api/udp/services/{name}`     | Returns the information of the UDP service specified by `name`.                             |
 | `/api/entrypoints`             | Lists all the entry points information.                                                     |
 | `/api/entrypoints/{name}`      | Returns the information of the entry point specified by `name`.                             |
 | `/api/overview`                | Returns statistic information about http and tcp as well as enabled features and providers. |
+| `/api/rawdata`                 | Returns information about dynamic configurations, errors, status and dependency relations.  |
 | `/api/version`                 | Returns information about Traefik version.                                                  |
 | `/debug/vars`                  | See the [expvar](https://golang.org/pkg/expvar/) Go documentation.                          |
 | `/debug/pprof/`                | See the [pprof Index](https://golang.org/pkg/net/http/pprof/#Index) Go documentation.       |

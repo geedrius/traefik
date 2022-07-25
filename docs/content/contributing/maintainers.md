@@ -1,6 +1,11 @@
+---
+title: "Traefik Maintainers Documentation"
+description: "Traefik Proxy is an open source software with a thriving community of contributors and maintainers. Read the list of maintainers on this page."
+---
+
 # Maintainers
 
-## The team
+## The Team
 
 * Emile Vauge [@emilevauge](https://github.com/emilevauge)
 * Vincent Demeester [@vdemeester](https://github.com/vdemeester)
@@ -19,12 +24,17 @@
 * Romain Tribotté [@rtribotte](https://github.com/rtribotte)
 * Kevin Pollet [@kevinpollet](https://github.com/kevinpollet)
 * Harold Ozouf [@jspdown](https://github.com/jspdown)
+* Tom Moulard [@tommoulard](https://github.com/tommoulard)
+
+## Maintainer's Guidelines
+
+Please read the [maintainer's guidelines](maintainers-guidelines.md)
 
 ## Issue Triage
 
 Issues and PRs are triaged daily and the process for triaging may be found under [triaging issues](https://github.com/traefik/contributors-guide/blob/master/issue_triage.md) in our [contributors guide repository](https://github.com/traefik/contributors-guide).
 
-## PR review process:
+## PR Review Process
 
 The process for reviewing PRs may be found under [review guidelines](https://github.com/traefik/contributors-guide/blob/master/review_guidelines.md) in our contributors guide repository.
 
@@ -114,7 +124,7 @@ The `status/*` labels represent the desired state in the workflow.
 * `priority/P2`: need to be fixed in the future.
 * `priority/P3`: maybe.
 
-### PR size
+### PR Size
 
 Automatically set by a bot.
 

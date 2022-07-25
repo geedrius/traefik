@@ -132,12 +132,18 @@ func createRoundTripper(cfg *dynamic.ServersTransport) (http.RoundTripper, error
 		transport.IdleConnTimeout = time.Duration(cfg.ForwardingTimeouts.IdleConnTimeout)
 	}
 
-	if cfg.InsecureSkipVerify || len(cfg.RootCAs) > 0 || len(cfg.ServerName) > 0 || len(cfg.Certificates) > 0 {
+	if cfg.InsecureSkipVerify || len(cfg.RootCAs) > 0 || len(cfg.ServerName) > 0 || len(cfg.Certificates) > 0 || cfg.PeerCertURI != "" {
 		transport.TLSClientConfig = &tls.Config{
 			ServerName:         cfg.ServerName,
 			InsecureSkipVerify: cfg.InsecureSkipVerify,
 			RootCAs:            createRootCACertPool(cfg.RootCAs),
 			Certificates:       cfg.Certificates.GetCertificates(),
+		}
+
+		if cfg.PeerCertURI != "" {
+			transport.TLSClientConfig.VerifyPeerCertificate = func(rawCerts [][]byte, _ [][]*x509.Certificate) error {
+				return traefiktls.VerifyPeerCertificate(cfg.PeerCertURI, transport.TLSClientConfig, rawCerts)
+			}
 		}
 	}
 
@@ -146,16 +152,7 @@ func createRoundTripper(cfg *dynamic.ServersTransport) (http.RoundTripper, error
 		return transport, nil
 	}
 
-	transport.RegisterProtocol("h2c", &h2cTransportWrapper{
-		Transport: &http2.Transport{
-			DialTLS: func(netw, addr string, cfg *tls.Config) (net.Conn, error) {
-				return net.Dial(netw, addr)
-			},
-			AllowHTTP: true,
-		},
-	})
-
-	return newSmartRoundTripper(transport)
+	return newSmartRoundTripper(transport, cfg.ForwardingTimeouts)
 }
 
 func createRootCACertPool(rootCAs []traefiktls.FileOrContent) *x509.CertPool {

@@ -1,12 +1,29 @@
 <template>
   <q-avatar class="provider-logo">
-    <q-icon :name="`img:statics/providers/${name}.svg`" />
+    <q-icon :name="`img:${getLogoPath}`" />
   </q-avatar>
 </template>
 
 <script>
 export default {
-  props: ['name']
+  props: ['name'],
+  computed: {
+    getLogoPath () {
+      const name = this.name.toLowerCase()
+
+      if (name.startsWith('plugin-')) {
+        return 'statics/providers/plugin.svg'
+      }
+      if (name.startsWith('consul-')) {
+        return `statics/providers/consul.svg`
+      }
+      if (name.startsWith('consulcatalog-')) {
+        return `statics/providers/consulcatalog.svg`
+      }
+
+      return `statics/providers/${name}.svg`
+    }
+  }
 }
 </script>
 
