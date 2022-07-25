@@ -7,7 +7,7 @@ import (
 
 const outputDir = "./plugins-storage/"
 
-func createPilotPluginBuilder(staticConfiguration *static.Configuration) (*plugins.Builder, error) {
+func createPluginBuilder(staticConfiguration *static.Configuration) (*plugins.Builder, error) {
 	client, plgs, devPlugin, err := initPlugins(staticConfiguration)
 	if err != nil {
 		return nil, err
