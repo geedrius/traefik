@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -48,6 +49,7 @@ type forwardAuth struct {
 	client                   http.Client
 	trustForwardHeader       bool
 	authRequestHeaders       []string
+	forwardBody              bool
 }
 
 // NewForward creates a forward auth middleware.
@@ -61,6 +63,7 @@ func NewForward(ctx context.Context, next http.Handler, config dynamic.ForwardAu
 		name:                name,
 		trustForwardHeader:  config.TrustForwardHeader,
 		authRequestHeaders:  config.AuthRequestHeaders,
+		forwardBody:         config.ForwardBody,
 	}
 
 	// Ensure our request client does not follow redirects
@@ -100,7 +103,28 @@ func (fa *forwardAuth) GetTracingInformation() (string, ext.SpanKindEnum) {
 func (fa *forwardAuth) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	logger := log.FromContext(middlewares.GetLoggerCtx(req.Context(), fa.name, forwardedTypeName))
 
-	forwardReq, err := http.NewRequest(http.MethodGet, fa.address, nil)
+	var forwardReq *http.Request
+	var err error
+
+	// get request body if forwarding is enabled
+	if fa.forwardBody == true {
+		reqBody, readErr := io.ReadAll(req.Body)
+		if readErr != nil {
+			logMessage := fmt.Sprintf("Error reading request body %s. Cause: %s", fa.address, readErr)
+			logger.Debug(logMessage)
+			tracing.SetErrorWithEvent(req, logMessage)
+
+			rw.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		defer req.Body.Close()
+
+		req.Body = io.NopCloser(bytes.NewBuffer(reqBody))
+		forwardReq, err = http.NewRequest(http.MethodGet, fa.address, bytes.NewReader(reqBody))
+	} else {
+		forwardReq, err = http.NewRequest(http.MethodGet, fa.address, nil)
+	}
+
 	tracing.LogRequest(tracing.GetSpan(req), forwardReq)
 	if err != nil {
 		logMessage := fmt.Sprintf("Error calling %s. Cause %s", fa.address, err)
