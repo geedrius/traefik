@@ -10,12 +10,12 @@ import (
 	"strings"
 
 	"github.com/BurntSushi/toml"
+	"github.com/rs/zerolog/log"
 	"github.com/traefik/paerser/env"
 	"github.com/traefik/paerser/flag"
 	"github.com/traefik/paerser/generator"
 	"github.com/traefik/paerser/parser"
 	"github.com/traefik/traefik/v2/cmd"
-	"github.com/traefik/traefik/v2/pkg/log"
 )
 
 func main() {
@@ -27,7 +27,7 @@ func main() {
 }
 
 func genStaticConfDoc(outputFile, prefix string, encodeFn func(interface{}) ([]parser.Flat, error)) {
-	logger := log.WithoutContext().WithField("file", outputFile)
+	logger := log.With().Str("file", outputFile).Logger()
 
 	element := &cmd.NewTraefikConfiguration().Configuration
 
@@ -35,17 +35,17 @@ func genStaticConfDoc(outputFile, prefix string, encodeFn func(interface{}) ([]p
 
 	flats, err := encodeFn(element)
 	if err != nil {
-		logger.Fatal(err)
+		logger.Fatal().Err(err).Send()
 	}
 
 	err = os.RemoveAll(outputFile)
 	if err != nil {
-		logger.Fatal(err)
+		logger.Fatal().Err(err).Send()
 	}
 
 	file, err := os.OpenFile(outputFile, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o666)
 	if err != nil {
-		logger.Fatal(err)
+		logger.Fatal().Err(err).Send()
 	}
 
 	defer file.Close()
@@ -61,6 +61,10 @@ THIS FILE MUST NOT BE EDITED BY HAND
 	for i, flat := range flats {
 		// TODO must be move into the flats creation.
 		if flat.Name == "experimental.plugins.<name>" || flat.Name == "TRAEFIK_EXPERIMENTAL_PLUGINS_<NAME>" {
+			continue
+		}
+
+		if strings.HasPrefix(flat.Name, "pilot.") || strings.HasPrefix(flat.Name, "TRAEFIK_PILOT_") {
 			continue
 		}
 
@@ -82,7 +86,7 @@ THIS FILE MUST NOT BE EDITED BY HAND
 	}
 
 	if w.err != nil {
-		logger.Fatal(err)
+		logger.Fatal().Err(err).Send()
 	}
 }
 
@@ -104,19 +108,19 @@ func genKVDynConfDoc(outputFile string) {
 	conf := map[string]interface{}{}
 	_, err := toml.DecodeFile(dynConfPath, &conf)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal().Err(err).Send()
 	}
 
 	file, err := os.Create(outputFile)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal().Err(err).Send()
 	}
 
 	store := storeWriter{data: map[string]string{}}
 	c := client{store: store}
 	err = c.load("traefik", conf)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal().Err(err).Send()
 	}
 
 	var keys []string
@@ -135,7 +139,7 @@ type storeWriter struct {
 	data map[string]string
 }
 
-func (f storeWriter) Put(key string, value []byte, options []string) error {
+func (f storeWriter) Put(key string, value []byte, _ []string) error {
 	f.data[key] = string(value)
 	return nil
 }

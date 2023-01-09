@@ -364,42 +364,10 @@ The `allowedHosts` option lists fully qualified domain names that are allowed.
 
 The `hostsProxyHeaders` option is a set of header keys that may hold a proxied hostname value for the request.
 
-### `sslRedirect`
-
-!!! warning
-
-    Deprecated in favor of [EntryPoint redirection](../../routing/entrypoints.md#redirection) or the [RedirectScheme middleware](./redirectscheme.md).
-
-The `sslRedirect` only allow HTTPS requests when set to `true`.
-
-### `sslTemporaryRedirect`
-
-!!! warning
-
-    Deprecated in favor of [EntryPoint redirection](../../routing/entrypoints.md#redirection) or the [RedirectScheme middleware](./redirectscheme.md).
-
-Set `sslTemporaryRedirect` to `true` to force an SSL redirection using a 302 (instead of a 301).
-
-### `sslHost`
-
-!!! warning
-
-    Deprecated in favor of the [RedirectRegex middleware](./redirectregex.md).
-
-The `sslHost` option is the host name that is used to redirect HTTP requests to HTTPS.
-
 ### `sslProxyHeaders`
 
 The `sslProxyHeaders` option is set of header keys with associated values that would indicate a valid HTTPS request.
 It can be useful when using other proxies (example: `"X-Forwarded-Proto": "https"`).
-
-### `sslForceHost`
-
-!!! warning
-
-    Deprecated in favor of the [RedirectRegex middleware](./redirectregex.md).
-
-Set `sslForceHost` to `true` and set `sslHost` to force requests to use `SSLHost` regardless of whether they already use SSL.
 
 ### `stsSeconds`
 
@@ -452,14 +420,6 @@ The `publicKey` implements HPKP to prevent MITM attacks with forged certificates
 
 The `referrerPolicy` allows sites to control whether browsers forward the `Referer` header to other sites.
 
-### `featurePolicy`
-
-!!! warning
-
-    Deprecated in favor of `permissionsPolicy`
-
-The `featurePolicy` allows sites to control browser features.
-
 ### `permissionsPolicy`
 
 The `permissionsPolicy` allows sites to control browser features.
@@ -469,3 +429,5 @@ The `permissionsPolicy` allows sites to control browser features.
 Set `isDevelopment` to `true` when developing to mitigate the unwanted effects of the `AllowedHosts`, SSL, and STS options.
 Usually testing takes place using HTTP, not HTTPS, and on `localhost`, not your production domain.
 If you would like your development environment to mimic production with complete Host blocking, SSL redirects, and STS headers, leave this as `false`.
+
+{!traefik-for-business-applications.md!}

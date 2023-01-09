@@ -28,7 +28,7 @@
 				"traefik"
 			]
 		},
-		"test-ingress-default-whoami-test-whoami@kubernetes": {
+		"default-test-ingress-whoami-test-whoami@kubernetes": {
 			"entryPoints": [
 				"web"
 			],
@@ -88,11 +88,14 @@
 						"url": "http://10.42.0.7:80"
 					}
 				],
-				"passHostHeader": true
+				"passHostHeader": true,
+				"responseForwarding": {
+					"flushInterval": "100ms"
+				}
 			},
 			"status": "enabled",
 			"usedBy": [
-				"test-ingress-default-whoami-test-whoami@kubernetes"
+				"default-test-ingress-whoami-test-whoami@kubernetes"
 			],
 			"serverStatus": {
 				"http://10.42.0.2:80": "UP",

@@ -4,6 +4,7 @@
 
 [log]
   level = "DEBUG"
+  noColor = true
 
 [entryPoints]
   [entryPoints.tcp]
@@ -34,8 +35,8 @@
 
     [tcp.services.whoami-b.loadBalancer]
       [[tcp.services.whoami-b.loadBalancer.servers]]
-        address = "whoami-b:8080"
+        address = "{{ .WhoamiB }}"
 
     [tcp.services.whoami-ab.loadBalancer]
       [[tcp.services.whoami-ab.loadBalancer.servers]]
-        address = "whoami-ab:8080"
+        address = "{{ .WhoamiAB }}"

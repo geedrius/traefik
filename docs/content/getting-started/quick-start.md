@@ -20,7 +20,7 @@ version: '3'
 services:
   reverse-proxy:
     # The official v2 Traefik docker image
-    image: traefik:v2.8
+    image: traefik:v3.0
     # Enables the web UI and tells Traefik to listen to docker
     command: --api.insecure=true --providers.docker
     ports:
@@ -50,7 +50,12 @@ Now that we have a Traefik instance up and running, we will deploy new services.
 Edit your `docker-compose.yml` file and add the following at the end of your file.
 
 ```yaml
-# ...
+version: '3'
+
+services:
+
+  ...
+
   whoami:
     # A container that exposes an API to show its IP address
     image: traefik/whoami
@@ -113,4 +118,7 @@ IP: 172.27.0.4
 ```
 
 !!! question "Where to Go Next?"
+
     Now that you have a basic understanding of how Traefik can automatically create the routes to your services and load balance them, it is time to dive into [the documentation](/) and let Traefik work for you!
+
+{!traefik-for-business-applications.md!}

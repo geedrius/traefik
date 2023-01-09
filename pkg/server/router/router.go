@@ -3,11 +3,13 @@ package router
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/containous/alice"
+	"github.com/rs/zerolog/log"
 	"github.com/traefik/traefik/v2/pkg/config/runtime"
-	"github.com/traefik/traefik/v2/pkg/log"
+	"github.com/traefik/traefik/v2/pkg/logs"
 	"github.com/traefik/traefik/v2/pkg/metrics"
 	"github.com/traefik/traefik/v2/pkg/middlewares/accesslog"
 	metricsMiddle "github.com/traefik/traefik/v2/pkg/middlewares/metrics"
@@ -16,6 +18,7 @@ import (
 	httpmuxer "github.com/traefik/traefik/v2/pkg/muxer/http"
 	"github.com/traefik/traefik/v2/pkg/server/middleware"
 	"github.com/traefik/traefik/v2/pkg/server/provider"
+	"github.com/traefik/traefik/v2/pkg/tls"
 )
 
 type middlewareBuilder interface {
@@ -24,7 +27,7 @@ type middlewareBuilder interface {
 
 type serviceManager interface {
 	BuildHTTP(rootCtx context.Context, serviceName string) (http.Handler, error)
-	LaunchHealthCheck()
+	LaunchHealthCheck(ctx context.Context)
 }
 
 // Manager A route/router manager.
@@ -35,10 +38,11 @@ type Manager struct {
 	middlewaresBuilder middlewareBuilder
 	chainBuilder       *middleware.ChainBuilder
 	conf               *runtime.Configuration
+	tlsManager         *tls.Manager
 }
 
-// NewManager Creates a new Manager.
-func NewManager(conf *runtime.Configuration, serviceManager serviceManager, middlewaresBuilder middlewareBuilder, chainBuilder *middleware.ChainBuilder, metricsRegistry metrics.Registry) *Manager {
+// NewManager creates a new Manager.
+func NewManager(conf *runtime.Configuration, serviceManager serviceManager, middlewaresBuilder middlewareBuilder, chainBuilder *middleware.ChainBuilder, metricsRegistry metrics.Registry, tlsManager *tls.Manager) *Manager {
 	return &Manager{
 		routerHandlers:     make(map[string]http.Handler),
 		serviceManager:     serviceManager,
@@ -46,6 +50,7 @@ func NewManager(conf *runtime.Configuration, serviceManager serviceManager, midd
 		middlewaresBuilder: middlewaresBuilder,
 		chainBuilder:       chainBuilder,
 		conf:               conf,
+		tlsManager:         tlsManager,
 	}
 }
 
@@ -63,19 +68,21 @@ func (m *Manager) BuildHandlers(rootCtx context.Context, entryPoints []string, t
 
 	for entryPointName, routers := range m.getHTTPRouters(rootCtx, entryPoints, tls) {
 		entryPointName := entryPointName
-		ctx := log.With(rootCtx, log.Str(log.EntryPointName, entryPointName))
+
+		logger := log.Ctx(rootCtx).With().Str(logs.EntryPointName, entryPointName).Logger()
+		ctx := logger.WithContext(rootCtx)
 
 		handler, err := m.buildEntryPointHandler(ctx, routers)
 		if err != nil {
-			log.FromContext(ctx).Error(err)
+			logger.Error().Err(err).Send()
 			continue
 		}
 
 		handlerWithAccessLog, err := alice.New(func(next http.Handler) (http.Handler, error) {
-			return accesslog.NewFieldHandler(next, log.EntryPointName, entryPointName, accesslog.AddOriginFields), nil
+			return accesslog.NewFieldHandler(next, logs.EntryPointName, entryPointName, accesslog.AddOriginFields), nil
 		}).Then(handler)
 		if err != nil {
-			log.FromContext(ctx).Error(err)
+			logger.Error().Err(err).Send()
 			entryPointHandlers[entryPointName] = handler
 		} else {
 			entryPointHandlers[entryPointName] = handlerWithAccessLog
@@ -83,7 +90,8 @@ func (m *Manager) BuildHandlers(rootCtx context.Context, entryPoints []string, t
 	}
 
 	for _, entryPointName := range entryPoints {
-		ctx := log.With(rootCtx, log.Str(log.EntryPointName, entryPointName))
+		logger := log.Ctx(rootCtx).With().Str(logs.EntryPointName, entryPointName).Logger()
+		ctx := logger.WithContext(rootCtx)
 
 		handler, ok := entryPointHandlers[entryPointName]
 		if !ok || handler == nil {
@@ -92,7 +100,7 @@ func (m *Manager) BuildHandlers(rootCtx context.Context, entryPoints []string, t
 
 		handlerWithMiddlewares, err := m.chainBuilder.Build(ctx, entryPointName).Then(handler)
 		if err != nil {
-			log.FromContext(ctx).Error(err)
+			logger.Error().Err(err).Send()
 			continue
 		}
 		entryPointHandlers[entryPointName] = handlerWithMiddlewares
@@ -108,20 +116,20 @@ func (m *Manager) buildEntryPointHandler(ctx context.Context, configs map[string
 	}
 
 	for routerName, routerConfig := range configs {
-		ctxRouter := log.With(provider.AddInContext(ctx, routerName), log.Str(log.RouterName, routerName))
-		logger := log.FromContext(ctxRouter)
+		logger := log.Ctx(ctx).With().Str(logs.RouterName, routerName).Logger()
+		ctxRouter := logger.WithContext(provider.AddInContext(ctx, routerName))
 
 		handler, err := m.buildRouterHandler(ctxRouter, routerName, routerConfig)
 		if err != nil {
 			routerConfig.AddError(err, true)
-			logger.Error(err)
+			logger.Error().Err(err).Send()
 			continue
 		}
 
 		err = muxer.AddRoute(routerConfig.Rule, routerConfig.Priority, handler)
 		if err != nil {
 			routerConfig.AddError(err, true)
-			logger.Error(err)
+			logger.Error().Err(err).Send()
 			continue
 		}
 	}
@@ -141,6 +149,17 @@ func (m *Manager) buildRouterHandler(ctx context.Context, routerName string, rou
 		return handler, nil
 	}
 
+	if routerConfig.TLS != nil {
+		// Don't build the router if the TLSOptions configuration is invalid.
+		tlsOptionsName := tls.DefaultTLSConfigName
+		if len(routerConfig.TLS.Options) > 0 && routerConfig.TLS.Options != tls.DefaultTLSConfigName {
+			tlsOptionsName = provider.GetQualifiedName(ctx, routerConfig.TLS.Options)
+		}
+		if _, err := m.tlsManager.Get(tls.DefaultTLSStoreName, tlsOptionsName); err != nil {
+			return nil, fmt.Errorf("building router handler: %w", err)
+		}
+	}
+
 	handler, err := m.buildHTTPHandler(ctx, routerConfig, routerName)
 	if err != nil {
 		return nil, err
@@ -150,7 +169,7 @@ func (m *Manager) buildRouterHandler(ctx context.Context, routerName string, rou
 		return accesslog.NewFieldHandler(next, accesslog.RouterName, routerName, nil), nil
 	}).Then(handler)
 	if err != nil {
-		log.FromContext(ctx).Error(err)
+		log.Ctx(ctx).Error().Err(err).Send()
 		m.routerHandlers[routerName] = handler
 	} else {
 		m.routerHandlers[routerName] = handlerWithAccessLog

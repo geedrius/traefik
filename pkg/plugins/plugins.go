@@ -4,11 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"reflect"
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
-	"github.com/traefik/traefik/v2/pkg/log"
+	"github.com/rs/zerolog/log"
 )
 
 const localGoPath = "./plugins-local/"
@@ -28,7 +27,7 @@ func SetupRemotePlugins(client *Client, plugins map[string]Descriptor) error {
 	ctx := context.Background()
 
 	for pAlias, desc := range plugins {
-		log.FromContext(ctx).Debugf("loading of plugin: %s: %s@%s", pAlias, desc.ModuleName, desc.Version)
+		log.Ctx(ctx).Debug().Msgf("Loading of plugin: %s: %s@%s", pAlias, desc.ModuleName, desc.Version)
 
 		hash, err := client.Download(ctx, desc.ModuleName, desc.Version)
 		if err != nil {
@@ -166,27 +165,4 @@ func checkLocalPluginManifest(descriptor LocalDescriptor) error {
 	}
 
 	return errs.ErrorOrNil()
-}
-
-func stringToSliceHookFunc(f reflect.Kind, t reflect.Kind, data interface{}) (interface{}, error) {
-	if f != reflect.String || t != reflect.Slice {
-		return data, nil
-	}
-
-	raw := data.(string)
-	if raw == "" {
-		return []string{}, nil
-	}
-
-	if strings.Contains(raw, "║") {
-		values := strings.Split(raw, "║")
-		// Removes the first value if the slice has a length of 2 and a first value empty.
-		// It's a workaround to escape the parsing on `,`.
-		if len(values) == 2 && values[0] == "" {
-			return values[1:], nil
-		}
-		return values, nil
-	}
-
-	return strings.Split(raw, ","), nil
 }

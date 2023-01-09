@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/traefik/traefik/v2/pkg/log"
+	"github.com/rs/zerolog/log"
 	tcpmuxer "github.com/traefik/traefik/v2/pkg/muxer/tcp"
 	"github.com/traefik/traefik/v2/pkg/tcp"
 )
@@ -27,19 +27,20 @@ type Router struct {
 	muxerHTTPS tcpmuxer.Muxer
 
 	// Forwarder handlers.
-	// Handles all HTTP requests.
+	// httpForwarder handles all HTTP requests.
 	httpForwarder tcp.Handler
-	// Handles (indirectly through muxerHTTPS, or directly) all HTTPS requests.
+	// httpsForwarder handles (indirectly through muxerHTTPS, or directly) all HTTPS requests.
 	httpsForwarder tcp.Handler
 
-	// Neither is used directly, but they are held here, and recreated on config
-	// reload, so that they can be passed to the Switcher at the end of the config
-	// reload phase.
+	// Neither is used directly, but they are held here, and recreated on config reload,
+	// so that they can be passed to the Switcher at the end of the config reload phase.
 	httpHandler  http.Handler
 	httpsHandler http.Handler
 
 	// TLS configs.
-	httpsTLSConfig    *tls.Config            // default TLS config
+	httpsTLSConfig *tls.Config // default TLS config
+	// hostHTTPTLSConfig contains TLS configs keyed by SNI.
+	// A nil config is the hint to set up a brokenTLSRouter.
 	hostHTTPTLSConfig map[string]*tls.Config // TLS configs keyed by SNI
 }
 
@@ -80,15 +81,15 @@ func (r *Router) GetTLSGetClientInfo() func(info *tls.ClientHelloInfo) (*tls.Con
 
 // ServeTCP forwards the connection to the right TCP/HTTP handler.
 func (r *Router) ServeTCP(conn tcp.WriteCloser) {
-	// Handling Non-TLS TCP connection early if there is neither HTTP(S) nor TLS
-	// routers on the entryPoint, and if there is at least one non-TLS TCP router.
-	// In the case of a non-TLS TCP client (that does not "send" first), we would
-	// block forever on clientHelloInfo, which is why we want to detect and
-	// handle that case first and foremost.
+	// Handling Non-TLS TCP connection early if there is neither HTTP(S) nor TLS routers on the entryPoint,
+	// and if there is at least one non-TLS TCP router.
+	// In the case of a non-TLS TCP client (that does not "send" first),
+	// we would block forever on clientHelloInfo,
+	// which is why we want to detect and handle that case first and foremost.
 	if r.muxerTCP.HasRoutes() && !r.muxerTCPTLS.HasRoutes() && !r.muxerHTTPS.HasRoutes() {
 		connData, err := tcpmuxer.NewConnData("", conn, nil)
 		if err != nil {
-			log.WithoutContext().Errorf("Error while reading TCP connection data: %v", err)
+			log.Error().Err(err).Msg("Error while reading TCP connection data")
 			conn.Close()
 			return
 		}
@@ -106,8 +107,19 @@ func (r *Router) ServeTCP(conn tcp.WriteCloser) {
 		// we still need to reply with a 404.
 	}
 
-	// FIXME -- Check if ProxyProtocol changes the first bytes of the request
+	// TODO -- Check if ProxyProtocol changes the first bytes of the request
 	br := bufio.NewReader(conn)
+	postgres, err := isPostgres(br)
+	if err != nil {
+		conn.Close()
+		return
+	}
+
+	if postgres {
+		r.servePostgres(r.GetConn(conn, getPeeked(br)))
+		return
+	}
+
 	hello, err := clientHelloInfo(br)
 	if err != nil {
 		conn.Close()
@@ -117,17 +129,17 @@ func (r *Router) ServeTCP(conn tcp.WriteCloser) {
 	// Remove read/write deadline and delegate this to underlying tcp server (for now only handled by HTTP Server)
 	err = conn.SetReadDeadline(time.Time{})
 	if err != nil {
-		log.WithoutContext().Errorf("Error while setting read deadline: %v", err)
+		log.Error().Err(err).Msg("Error while setting read deadline")
 	}
 
 	err = conn.SetWriteDeadline(time.Time{})
 	if err != nil {
-		log.WithoutContext().Errorf("Error while setting write deadline: %v", err)
+		log.Error().Err(err).Msg("Error while setting write deadline")
 	}
 
 	connData, err := tcpmuxer.NewConnData(hello.serverName, conn, hello.protos)
 	if err != nil {
-		log.WithoutContext().Errorf("Error while reading TCP connection data: %v", err)
+		log.Error().Err(err).Msg("Error while reading TCP connection data")
 		conn.Close()
 		return
 	}
@@ -152,9 +164,9 @@ func (r *Router) ServeTCP(conn tcp.WriteCloser) {
 	// (wrapped inside the returned handler) requested for the given HostSNI.
 	handlerHTTPS, catchAllHTTPS := r.muxerHTTPS.Match(connData)
 	if handlerHTTPS != nil && !catchAllHTTPS {
-		// In order not to depart from the behavior in 2.6, we only allow an HTTPS router
-		// to take precedence over a TCP-TLS router if it is _not_ an HostSNI(*) router (so
-		// basically any router that has a specific HostSNI based rule).
+		// In order not to depart from the behavior in 2.6,
+		// we only allow an HTTPS router to take precedence over a TCP-TLS router if it is _not_ an HostSNI(*) router
+		// (so basically any router that has a specific HostSNI based rule).
 		handlerHTTPS.ServeTCP(r.GetConn(conn, hello.peeked))
 		return
 	}
@@ -180,7 +192,7 @@ func (r *Router) ServeTCP(conn tcp.WriteCloser) {
 		return
 	}
 
-	// needed to handle 404s for HTTPS, as well as all non-Host (e.g. PathPrefix) matches.
+	// To handle 404s for HTTPS.
 	if r.httpsForwarder != nil {
 		r.httpsForwarder.ServeTCP(r.GetConn(conn, hello.peeked))
 		return
@@ -194,19 +206,6 @@ func (r *Router) AddRoute(rule string, priority int, target tcp.Handler) error {
 	return r.muxerTCP.AddRoute(rule, priority, target)
 }
 
-// AddRouteTLS defines a handler for a given rule and sets the matching tlsConfig.
-func (r *Router) AddRouteTLS(rule string, priority int, target tcp.Handler, config *tls.Config) error {
-	// TLS PassThrough
-	if config == nil {
-		return r.muxerTCPTLS.AddRoute(rule, priority, target)
-	}
-
-	return r.muxerTCPTLS.AddRoute(rule, priority, &tcp.TLSHandler{
-		Next:   target,
-		Config: config,
-	})
-}
-
 // AddHTTPTLSConfig defines a handler for a given sniHost and sets the matching tlsConfig.
 func (r *Router) AddHTTPTLSConfig(sniHost string, config *tls.Config) {
 	if r.hostHTTPTLSConfig == nil {
@@ -218,7 +217,7 @@ func (r *Router) AddHTTPTLSConfig(sniHost string, config *tls.Config) {
 
 // GetConn creates a connection proxy with a peeked string.
 func (r *Router) GetConn(conn tcp.WriteCloser, peeked string) tcp.WriteCloser {
-	// FIXME should it really be on Router ?
+	// TODO should it really be on Router ?
 	conn = &Conn{
 		Peeked:      []byte(peeked),
 		WriteCloser: conn,
@@ -242,18 +241,42 @@ func (r *Router) SetHTTPForwarder(handler tcp.Handler) {
 	r.httpForwarder = handler
 }
 
-// SetHTTPSForwarder sets the tcp handler that will forward the TLS connections to an http handler.
+// brokenTLSRouter is associated to a Host(SNI) rule for which we know the TLS conf is broken.
+// It is used to make sure any attempt to connect to that hostname is closed,
+// since we cannot proceed with the intended TLS conf.
+type brokenTLSRouter struct{}
+
+// ServeTCP instantly closes the connection.
+func (t *brokenTLSRouter) ServeTCP(conn tcp.WriteCloser) {
+	_ = conn.Close()
+}
+
+// SetHTTPSForwarder sets the tcp handler that will forward the TLS connections to an HTTP handler.
+// It also sets up each TLS handler (with its TLS config) for each Host(SNI) rule we previously kept track of.
+// It sets up a special handler that closes the connection if a TLS config is nil.
 func (r *Router) SetHTTPSForwarder(handler tcp.Handler) {
 	for sniHost, tlsConf := range r.hostHTTPTLSConfig {
+		var tcpHandler tcp.Handler
+		if tlsConf == nil {
+			tcpHandler = &brokenTLSRouter{}
+		} else {
+			tcpHandler = &tcp.TLSHandler{
+				Next:   handler,
+				Config: tlsConf,
+			}
+		}
+
 		// muxerHTTPS only contains single HostSNI rules (and no other kind of rules),
 		// so there's no need for specifying a priority for them.
-		err := r.muxerHTTPS.AddRoute("HostSNI(`"+sniHost+"`)", 0, &tcp.TLSHandler{
-			Next:   handler,
-			Config: tlsConf,
-		})
+		err := r.muxerHTTPS.AddRoute("HostSNI(`"+sniHost+"`)", 0, tcpHandler)
 		if err != nil {
-			log.WithoutContext().Errorf("Error while adding route for host: %v", err)
+			log.Error().Err(err).Msg("Error while adding route for host")
 		}
+	}
+
+	if r.httpsTLSConfig == nil {
+		r.httpsForwarder = &brokenTLSRouter{}
+		return
 	}
 
 	r.httpsForwarder = &tcp.TLSHandler{
@@ -275,15 +298,14 @@ func (r *Router) SetHTTPSHandler(handler http.Handler, config *tls.Config) {
 
 // Conn is a connection proxy that handles Peeked bytes.
 type Conn struct {
-	// Peeked are the bytes that have been read from Conn for the
-	// purposes of route matching, but have not yet been consumed
-	// by Read calls. It set to nil by Read when fully consumed.
+	// Peeked are the bytes that have been read from Conn for the purposes of route matching,
+	// but have not yet been consumed by Read calls.
+	// It set to nil by Read when fully consumed.
 	Peeked []byte
 
 	// Conn is the underlying connection.
-	// It can be type asserted against *net.TCPConn or other types
-	// as needed. It should not be read from directly unless
-	// Peeked is nil.
+	// It can be type asserted against *net.TCPConn or other types as needed.
+	// It should not be read from directly unless Peeked is nil.
 	tcp.WriteCloser
 }
 
@@ -315,20 +337,19 @@ func clientHelloInfo(br *bufio.Reader) (*clientHello, error) {
 	if err != nil {
 		var opErr *net.OpError
 		if !errors.Is(err, io.EOF) && (!errors.As(err, &opErr) || opErr.Timeout()) {
-			log.WithoutContext().Errorf("Error while Peeking first byte: %s", err)
+			log.Error().Err(err).Msg("Error while Peeking first byte")
 		}
 		return nil, err
 	}
 
-	// No valid TLS record has a type of 0x80, however SSLv2 handshakes
-	// start with a uint16 length where the MSB is set and the first record
-	// is always < 256 bytes long. Therefore typ == 0x80 strongly suggests
-	// an SSLv2 client.
+	// No valid TLS record has a type of 0x80, however SSLv2 handshakes start with an uint16 length
+	// where the MSB is set and the first record is always < 256 bytes long.
+	// Therefore, typ == 0x80 strongly suggests an SSLv2 client.
 	const recordTypeSSLv2 = 0x80
 	const recordTypeHandshake = 0x16
 	if hdr[0] != recordTypeHandshake {
 		if hdr[0] == recordTypeSSLv2 {
-			// we consider SSLv2 as TLS and it will be refused by real TLS handshake.
+			// we consider SSLv2 as TLS, and it will be refused by real TLS handshake.
 			return &clientHello{
 				isTLS:  true,
 				peeked: getPeeked(br),
@@ -342,7 +363,7 @@ func clientHelloInfo(br *bufio.Reader) (*clientHello, error) {
 	const recordHeaderLen = 5
 	hdr, err = br.Peek(recordHeaderLen)
 	if err != nil {
-		log.Errorf("Error while Peeking hello: %s", err)
+		log.Error().Err(err).Msg("Error while Peeking hello")
 		return &clientHello{
 			peeked: getPeeked(br),
 		}, nil
@@ -356,7 +377,7 @@ func clientHelloInfo(br *bufio.Reader) (*clientHello, error) {
 
 	helloBytes, err := br.Peek(recordHeaderLen + recLen)
 	if err != nil {
-		log.Errorf("Error while Hello: %s", err)
+		log.Error().Err(err).Msg("Error while Hello")
 		return &clientHello{
 			isTLS:  true,
 			peeked: getPeeked(br),
@@ -385,7 +406,7 @@ func clientHelloInfo(br *bufio.Reader) (*clientHello, error) {
 func getPeeked(br *bufio.Reader) string {
 	peeked, err := br.Peek(br.Buffered())
 	if err != nil {
-		log.Errorf("Could not get anything: %s", err)
+		log.Error().Err(err).Msg("Could not get anything")
 		return ""
 	}
 	return string(peeked)

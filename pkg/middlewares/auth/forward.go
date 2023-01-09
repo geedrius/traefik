@@ -14,12 +14,11 @@ import (
 
 	"github.com/opentracing/opentracing-go/ext"
 	"github.com/traefik/traefik/v2/pkg/config/dynamic"
-	"github.com/traefik/traefik/v2/pkg/log"
 	"github.com/traefik/traefik/v2/pkg/middlewares"
 	"github.com/traefik/traefik/v2/pkg/middlewares/connectionheader"
 	"github.com/traefik/traefik/v2/pkg/tracing"
-	"github.com/vulcand/oxy/forward"
-	"github.com/vulcand/oxy/utils"
+	"github.com/vulcand/oxy/v2/forward"
+	"github.com/vulcand/oxy/v2/utils"
 )
 
 const (
@@ -54,7 +53,7 @@ type forwardAuth struct {
 
 // NewForward creates a forward auth middleware.
 func NewForward(ctx context.Context, next http.Handler, config dynamic.ForwardAuth, name string) (http.Handler, error) {
-	log.FromContext(middlewares.GetLoggerCtx(ctx, name, forwardedTypeName)).Debug("Creating middleware")
+	middlewares.GetLogger(ctx, name, forwardedTypeName).Debug().Msg("Creating middleware")
 
 	fa := &forwardAuth{
 		address:             config.Address,
@@ -101,7 +100,7 @@ func (fa *forwardAuth) GetTracingInformation() (string, ext.SpanKindEnum) {
 }
 
 func (fa *forwardAuth) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
-	logger := log.FromContext(middlewares.GetLoggerCtx(req.Context(), fa.name, forwardedTypeName))
+	logger := middlewares.GetLogger(req.Context(), fa.name, forwardedTypeName)
 
 	var forwardReq *http.Request
 	var err error
@@ -128,7 +127,7 @@ func (fa *forwardAuth) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	tracing.LogRequest(tracing.GetSpan(req), forwardReq)
 	if err != nil {
 		logMessage := fmt.Sprintf("Error calling %s. Cause %s", fa.address, err)
-		logger.Debug(logMessage)
+		logger.Debug().Msg(logMessage)
 		tracing.SetErrorWithEvent(req, logMessage)
 
 		rw.WriteHeader(http.StatusInternalServerError)
@@ -144,7 +143,7 @@ func (fa *forwardAuth) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	forwardResponse, forwardErr := fa.client.Do(forwardReq)
 	if forwardErr != nil {
 		logMessage := fmt.Sprintf("Error calling %s. Cause: %s", fa.address, forwardErr)
-		logger.Debug(logMessage)
+		logger.Debug().Msg(logMessage)
 		tracing.SetErrorWithEvent(req, logMessage)
 
 		rw.WriteHeader(http.StatusInternalServerError)
@@ -154,7 +153,7 @@ func (fa *forwardAuth) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	body, readError := io.ReadAll(forwardResponse.Body)
 	if readError != nil {
 		logMessage := fmt.Sprintf("Error reading body %s. Cause: %s", fa.address, readError)
-		logger.Debug(logMessage)
+		logger.Debug().Msg(logMessage)
 		tracing.SetErrorWithEvent(req, logMessage)
 
 		rw.WriteHeader(http.StatusInternalServerError)
@@ -165,7 +164,7 @@ func (fa *forwardAuth) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	// Pass the forward response's body and selected headers if it
 	// didn't return a response within the range of [200, 300).
 	if forwardResponse.StatusCode < http.StatusOK || forwardResponse.StatusCode >= http.StatusMultipleChoices {
-		logger.Debugf("Remote error %s. StatusCode: %d", fa.address, forwardResponse.StatusCode)
+		logger.Debug().Msgf("Remote error %s. StatusCode: %d", fa.address, forwardResponse.StatusCode)
 
 		utils.CopyHeaders(rw.Header(), forwardResponse.Header)
 		utils.RemoveHeaders(rw.Header(), hopHeaders...)
@@ -176,7 +175,7 @@ func (fa *forwardAuth) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		if err != nil {
 			if !errors.Is(err, http.ErrNoLocation) {
 				logMessage := fmt.Sprintf("Error reading response location header %s. Cause: %s", fa.address, err)
-				logger.Debug(logMessage)
+				logger.Debug().Msg(logMessage)
 				tracing.SetErrorWithEvent(req, logMessage)
 
 				rw.WriteHeader(http.StatusInternalServerError)
@@ -191,7 +190,7 @@ func (fa *forwardAuth) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		rw.WriteHeader(forwardResponse.StatusCode)
 
 		if _, err = rw.Write(body); err != nil {
-			logger.Error(err)
+			logger.Error().Err(err).Send()
 		}
 		return
 	}

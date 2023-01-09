@@ -10,19 +10,24 @@ import (
 
 	"github.com/containous/alice"
 	gokitmetrics "github.com/go-kit/kit/metrics"
-	"github.com/traefik/traefik/v2/pkg/log"
+	"github.com/rs/zerolog/log"
 	"github.com/traefik/traefik/v2/pkg/metrics"
 	"github.com/traefik/traefik/v2/pkg/middlewares"
+	"github.com/traefik/traefik/v2/pkg/middlewares/capture"
 	"github.com/traefik/traefik/v2/pkg/middlewares/retry"
 	traefiktls "github.com/traefik/traefik/v2/pkg/tls"
+	"google.golang.org/grpc/codes"
 )
 
 const (
 	protoHTTP      = "http"
+	protoGRPC      = "grpc"
+	protoGRPCWeb   = "grpc-web"
 	protoSSE       = "sse"
 	protoWebsocket = "websocket"
 	typeName       = "Metrics"
 	nameEntrypoint = "metrics-entrypoint"
+	nameRouter     = "metrics-router"
 	nameService    = "metrics-service"
 )
 
@@ -32,12 +37,14 @@ type metricsMiddleware struct {
 	reqsTLSCounter       gokitmetrics.Counter
 	reqDurationHistogram metrics.ScalableHistogram
 	openConnsGauge       gokitmetrics.Gauge
+	reqsBytesCounter     gokitmetrics.Counter
+	respsBytesCounter    gokitmetrics.Counter
 	baseLabels           []string
 }
 
 // NewEntryPointMiddleware creates a new metrics middleware for an Entrypoint.
 func NewEntryPointMiddleware(ctx context.Context, next http.Handler, registry metrics.Registry, entryPointName string) http.Handler {
-	log.FromContext(middlewares.GetLoggerCtx(ctx, nameEntrypoint, typeName)).Debug("Creating middleware")
+	middlewares.GetLogger(ctx, nameEntrypoint, typeName).Debug().Msg("Creating middleware")
 
 	return &metricsMiddleware{
 		next:                 next,
@@ -45,13 +52,15 @@ func NewEntryPointMiddleware(ctx context.Context, next http.Handler, registry me
 		reqsTLSCounter:       registry.EntryPointReqsTLSCounter(),
 		reqDurationHistogram: registry.EntryPointReqDurationHistogram(),
 		openConnsGauge:       registry.EntryPointOpenConnsGauge(),
+		reqsBytesCounter:     registry.EntryPointReqsBytesCounter(),
+		respsBytesCounter:    registry.EntryPointRespsBytesCounter(),
 		baseLabels:           []string{"entrypoint", entryPointName},
 	}
 }
 
 // NewRouterMiddleware creates a new metrics middleware for a Router.
 func NewRouterMiddleware(ctx context.Context, next http.Handler, registry metrics.Registry, routerName string, serviceName string) http.Handler {
-	log.FromContext(middlewares.GetLoggerCtx(ctx, nameEntrypoint, typeName)).Debug("Creating middleware")
+	middlewares.GetLogger(ctx, nameRouter, typeName).Debug().Msg("Creating middleware")
 
 	return &metricsMiddleware{
 		next:                 next,
@@ -59,13 +68,15 @@ func NewRouterMiddleware(ctx context.Context, next http.Handler, registry metric
 		reqsTLSCounter:       registry.RouterReqsTLSCounter(),
 		reqDurationHistogram: registry.RouterReqDurationHistogram(),
 		openConnsGauge:       registry.RouterOpenConnsGauge(),
+		reqsBytesCounter:     registry.RouterReqsBytesCounter(),
+		respsBytesCounter:    registry.RouterRespsBytesCounter(),
 		baseLabels:           []string{"router", routerName, "service", serviceName},
 	}
 }
 
 // NewServiceMiddleware creates a new metrics middleware for a Service.
 func NewServiceMiddleware(ctx context.Context, next http.Handler, registry metrics.Registry, serviceName string) http.Handler {
-	log.FromContext(middlewares.GetLoggerCtx(ctx, nameService, typeName)).Debug("Creating middleware")
+	middlewares.GetLogger(ctx, nameService, typeName).Debug().Msg("Creating middleware")
 
 	return &metricsMiddleware{
 		next:                 next,
@@ -73,6 +84,8 @@ func NewServiceMiddleware(ctx context.Context, next http.Handler, registry metri
 		reqsTLSCounter:       registry.ServiceReqsTLSCounter(),
 		reqDurationHistogram: registry.ServiceReqDurationHistogram(),
 		openConnsGauge:       registry.ServiceOpenConnsGauge(),
+		reqsBytesCounter:     registry.ServiceReqsBytesCounter(),
+		respsBytesCounter:    registry.ServiceRespsBytesCounter(),
 		baseLabels:           []string{"service", serviceName},
 	}
 }
@@ -91,20 +104,17 @@ func WrapRouterHandler(ctx context.Context, registry metrics.Registry, routerNam
 	}
 }
 
-// WrapServiceHandler Wraps metrics service to alice.Constructor.
-func WrapServiceHandler(ctx context.Context, registry metrics.Registry, serviceName string) alice.Constructor {
-	return func(next http.Handler) (http.Handler, error) {
-		return NewServiceMiddleware(ctx, next, registry, serviceName), nil
-	}
-}
-
 func (m *metricsMiddleware) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
+	proto := getRequestProtocol(req)
+
 	var labels []string
 	labels = append(labels, m.baseLabels...)
-	labels = append(labels, "method", getMethod(req), "protocol", getRequestProtocol(req))
+	labels = append(labels, "method", getMethod(req))
+	labels = append(labels, "protocol", proto)
 
-	m.openConnsGauge.With(labels...).Add(1)
-	defer m.openConnsGauge.With(labels...).Add(-1)
+	openConnsGauge := m.openConnsGauge.With(labels...)
+	openConnsGauge.Add(1)
+	defer openConnsGauge.Add(-1)
 
 	// TLS metrics
 	if req.TLS != nil {
@@ -115,17 +125,37 @@ func (m *metricsMiddleware) ServeHTTP(rw http.ResponseWriter, req *http.Request)
 		m.reqsTLSCounter.With(tlsLabels...).Add(1)
 	}
 
-	recorder := newResponseRecorder(rw)
+	ctx := req.Context()
+
+	capt, err := capture.FromContext(ctx)
+	if err != nil {
+		with := log.Ctx(ctx).With()
+		for i := 0; i < len(m.baseLabels); i += 2 {
+			with = with.Str(m.baseLabels[i], m.baseLabels[i+1])
+		}
+		logger := with.Logger()
+		logger.Error().Err(err).Msg("Could not get Capture")
+		return
+	}
+
+	next := m.next
+	if capt.NeedsReset(rw) {
+		next = capt.Reset(m.next)
+	}
+
 	start := time.Now()
+	next.ServeHTTP(rw, req)
 
-	m.next.ServeHTTP(recorder, req)
+	code := capt.StatusCode()
+	if proto == protoGRPC || proto == protoGRPCWeb {
+		code = grpcStatusCode(rw)
+	}
 
-	labels = append(labels, "code", strconv.Itoa(recorder.getCode()))
-
-	histograms := m.reqDurationHistogram.With(labels...)
-	histograms.ObserveFromStart(start)
-
+	labels = append(labels, "code", strconv.Itoa(code))
+	m.reqDurationHistogram.With(labels...).ObserveFromStart(start)
 	m.reqsCounter.With(labels...).Add(1)
+	m.respsBytesCounter.With(labels...).Add(float64(capt.ResponseSize()))
+	m.reqsBytesCounter.With(labels...).Add(float64(capt.RequestSize()))
 }
 
 func getRequestProtocol(req *http.Request) string {
@@ -134,6 +164,10 @@ func getRequestProtocol(req *http.Request) string {
 		return protoWebsocket
 	case isSSERequest(req):
 		return protoSSE
+	case isGRPCWebRequest(req):
+		return protoGRPCWeb
+	case isGRPCRequest(req):
+		return protoGRPC
 	default:
 		return protoHTTP
 	}
@@ -147,6 +181,27 @@ func isWebsocketRequest(req *http.Request) bool {
 // isSSERequest determines if the specified HTTP request is a request for an event subscription.
 func isSSERequest(req *http.Request) bool {
 	return containsHeader(req, "Accept", "text/event-stream")
+}
+
+// isGRPCWebRequest determines if the specified HTTP request is a gRPC-Web request.
+func isGRPCWebRequest(req *http.Request) bool {
+	return strings.HasPrefix(req.Header.Get("Content-Type"), "application/grpc-web")
+}
+
+// isGRPCRequest determines if the specified HTTP request is a gRPC request.
+func isGRPCRequest(req *http.Request) bool {
+	return strings.HasPrefix(req.Header.Get("Content-Type"), "application/grpc")
+}
+
+// grpcStatusCode parses and returns the gRPC status code from the Grpc-Status header.
+func grpcStatusCode(rw http.ResponseWriter) int {
+	code := codes.Unknown
+	if status := rw.Header().Get("Grpc-Status"); status != "" {
+		if err := code.UnmarshalJSON([]byte(status)); err != nil {
+			return int(code)
+		}
+	}
+	return int(code)
 }
 
 func containsHeader(req *http.Request, name, value string) bool {
@@ -166,9 +221,11 @@ func containsHeader(req *http.Request, name, value string) bool {
 // values that are not part of the set of HTTP verbs are replaced with EXTENSION_METHOD.
 // See https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods
 // https://datatracker.ietf.org/doc/html/rfc2616/#section-5.1.1.
+//
+//nolint:usestdlibvars
 func getMethod(r *http.Request) string {
 	if !utf8.ValidString(r.Method) {
-		log.WithoutContext().Warnf("Invalid HTTP method encoding: %s", r.Method)
+		log.Warn().Msgf("Invalid HTTP method encoding: %s", r.Method)
 		return "NON_UTF8_HTTP_METHOD"
 	}
 
@@ -199,6 +256,6 @@ type RetryListener struct {
 }
 
 // Retried tracks the retry in the RequestMetrics implementation.
-func (m *RetryListener) Retried(req *http.Request, attempt int) {
+func (m *RetryListener) Retried(_ *http.Request, _ int) {
 	m.retryMetrics.ServiceRetriesCounter().With("service", m.serviceName).Add(1)
 }

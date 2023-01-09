@@ -9,6 +9,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -94,7 +95,6 @@ func (h *httpForwarder) Accept() (net.Conn, error) {
 //
 // - TCP-TLS HostSNI(`foobar`) and HTTPS PathPrefix(`/`)
 //   - On v2.6 and v2.7, the TCP-TLS one takes precedence.
-//
 func Test_Routing(t *testing.T) {
 	// This listener simulates the backend service.
 	// It is capable of switching into server first communication mode,
@@ -110,8 +110,13 @@ func Test_Routing(t *testing.T) {
 		for {
 			conn, err := tcpBackendListener.Accept()
 			if err != nil {
-				var netErr net.Error
-				if errors.As(err, &netErr) && netErr.Temporary() {
+				var opErr *net.OpError
+				if errors.As(err, &opErr) && opErr.Temporary() {
+					continue
+				}
+
+				var urlErr *url.Error
+				if errors.As(err, &urlErr) && urlErr.Temporary() {
 					continue
 				}
 
@@ -916,4 +921,90 @@ func checkHTTPSTLS10(addr string, timeout time.Duration) error {
 // It returns an error if it doesn't receive the expected response.
 func checkHTTPSTLS12(addr string, timeout time.Duration) error {
 	return checkHTTPS(addr, timeout, tls.VersionTLS12)
+}
+
+func TestPostgres(t *testing.T) {
+	router, err := NewRouter()
+	require.NoError(t, err)
+
+	// This test requires to have a TLS route, but does not actually check the
+	// content of the handler. It would require to code a TLS handshake to
+	// check the SNI and content of the handlerFunc.
+	err = router.muxerTCPTLS.AddRoute("HostSNI(`test.localhost`)", 0, nil)
+	require.NoError(t, err)
+
+	err = router.AddRoute("HostSNI(`*`)", 0, tcp2.HandlerFunc(func(conn tcp2.WriteCloser) {
+		_, _ = conn.Write([]byte("OK"))
+		_ = conn.Close()
+	}))
+	require.NoError(t, err)
+
+	mockConn := NewMockConn()
+	go router.ServeTCP(mockConn)
+
+	mockConn.dataRead <- PostgresStartTLSMsg
+	b := <-mockConn.dataWrite
+	require.Equal(t, PostgresStartTLSReply, b)
+
+	mockConn = NewMockConn()
+	go router.ServeTCP(mockConn)
+
+	mockConn.dataRead <- []byte("HTTP")
+	b = <-mockConn.dataWrite
+	require.Equal(t, []byte("OK"), b)
+}
+
+func NewMockConn() *MockConn {
+	return &MockConn{
+		dataRead:  make(chan []byte),
+		dataWrite: make(chan []byte),
+	}
+}
+
+type MockConn struct {
+	dataRead  chan []byte
+	dataWrite chan []byte
+}
+
+func (m *MockConn) Read(b []byte) (n int, err error) {
+	temp := <-m.dataRead
+	copy(b, temp)
+	return len(temp), nil
+}
+
+func (m *MockConn) Write(b []byte) (n int, err error) {
+	m.dataWrite <- b
+	return len(b), nil
+}
+
+func (m *MockConn) Close() error {
+	close(m.dataRead)
+	close(m.dataWrite)
+	return nil
+}
+
+func (m *MockConn) LocalAddr() net.Addr {
+	return nil
+}
+
+func (m *MockConn) RemoteAddr() net.Addr {
+	return &net.TCPAddr{}
+}
+
+func (m *MockConn) SetDeadline(t time.Time) error {
+	return nil
+}
+
+func (m *MockConn) SetReadDeadline(t time.Time) error {
+	return nil
+}
+
+func (m *MockConn) SetWriteDeadline(t time.Time) error {
+	return nil
+}
+
+func (m *MockConn) CloseWrite() error {
+	close(m.dataRead)
+	close(m.dataWrite)
+	return nil
 }

@@ -65,26 +65,31 @@ tracing:
 --tracing.datadog.debug=true
 ```
 
-#### `globalTag`
+#### `globalTags`
 
 _Optional, Default=empty_
 
-Applies a shared key:value tag on all spans.
+Applies a list of shared key:value tags on all spans.
 
 ```yaml tab="File (YAML)"
 tracing:
   datadog:
-    globalTag: sample
+    globalTags:
+      tag1: foo
+      tag2: bar
 ```
 
 ```toml tab="File (TOML)"
 [tracing]
   [tracing.datadog]
-    globalTag = "sample"
+    [tracing.datadog.globalTags]
+      tag1 = "foo"
+      tag2 = "bar"
 ```
 
 ```bash tab="CLI"
---tracing.datadog.globalTag=sample
+--tracing.datadog.globalTags.tag1=foo
+--tracing.datadog.globalTags.tag2=bar
 ```
 
 #### `prioritySampling`

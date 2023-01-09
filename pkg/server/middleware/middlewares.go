@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"reflect"
 	"strings"
 
 	"github.com/containous/alice"
@@ -15,10 +16,12 @@ import (
 	"github.com/traefik/traefik/v2/pkg/middlewares/chain"
 	"github.com/traefik/traefik/v2/pkg/middlewares/circuitbreaker"
 	"github.com/traefik/traefik/v2/pkg/middlewares/compress"
+	"github.com/traefik/traefik/v2/pkg/middlewares/contenttype"
 	"github.com/traefik/traefik/v2/pkg/middlewares/customerrors"
+	"github.com/traefik/traefik/v2/pkg/middlewares/grpcweb"
 	"github.com/traefik/traefik/v2/pkg/middlewares/headers"
 	"github.com/traefik/traefik/v2/pkg/middlewares/inflightreq"
-	"github.com/traefik/traefik/v2/pkg/middlewares/ipwhitelist"
+	"github.com/traefik/traefik/v2/pkg/middlewares/ipallowlist"
 	"github.com/traefik/traefik/v2/pkg/middlewares/passtlsclientcert"
 	"github.com/traefik/traefik/v2/pkg/middlewares/ratelimiter"
 	"github.com/traefik/traefik/v2/pkg/middlewares/redirect"
@@ -179,12 +182,7 @@ func (b *Builder) buildConstructor(ctx context.Context, middlewareName string) (
 			return nil, badConf
 		}
 		middleware = func(next http.Handler) (http.Handler, error) {
-			return http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-				if !config.ContentType.AutoDetect {
-					rw.Header()["Content-Type"] = nil
-				}
-				next.ServeHTTP(rw, req)
-			}), nil
+			return contenttype.New(ctx, next, middlewareName)
 		}
 	}
 
@@ -218,6 +216,16 @@ func (b *Builder) buildConstructor(ctx context.Context, middlewareName string) (
 		}
 	}
 
+	// GrpcWeb
+	if config.GrpcWeb != nil {
+		if middleware != nil {
+			return nil, badConf
+		}
+		middleware = func(next http.Handler) (http.Handler, error) {
+			return grpcweb.New(ctx, next, *config.GrpcWeb, middlewareName), nil
+		}
+	}
+
 	// Headers
 	if config.Headers != nil {
 		if middleware != nil {
@@ -228,13 +236,13 @@ func (b *Builder) buildConstructor(ctx context.Context, middlewareName string) (
 		}
 	}
 
-	// IPWhiteList
-	if config.IPWhiteList != nil {
+	// IPAllowList
+	if config.IPAllowList != nil {
 		if middleware != nil {
 			return nil, badConf
 		}
 		middleware = func(next http.Handler) (http.Handler, error) {
-			return ipwhitelist.New(ctx, next, *config.IPWhiteList, middlewareName)
+			return ipallowlist.New(ctx, next, *config.IPAllowList, middlewareName)
 		}
 	}
 
@@ -314,7 +322,7 @@ func (b *Builder) buildConstructor(ctx context.Context, middlewareName string) (
 			return nil, badConf
 		}
 		middleware = func(next http.Handler) (http.Handler, error) {
-			// FIXME missing metrics / accessLog
+			// TODO missing metrics / accessLog
 			return retry.New(ctx, next, *config.Retry, retry.Listeners{}, middlewareName)
 		}
 	}
@@ -340,7 +348,7 @@ func (b *Builder) buildConstructor(ctx context.Context, middlewareName string) (
 	}
 
 	// Plugin
-	if config.Plugin != nil {
+	if config.Plugin != nil && !reflect.ValueOf(b.pluginBuilder).IsNil() { // Using "reflect" because "b.pluginBuilder" is an interface.
 		if middleware != nil {
 			return nil, badConf
 		}

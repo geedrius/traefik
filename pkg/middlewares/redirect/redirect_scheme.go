@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/traefik/traefik/v2/pkg/config/dynamic"
-	"github.com/traefik/traefik/v2/pkg/log"
 	"github.com/traefik/traefik/v2/pkg/middlewares"
 )
 
@@ -20,9 +19,9 @@ const (
 
 // NewRedirectScheme creates a new RedirectScheme middleware.
 func NewRedirectScheme(ctx context.Context, next http.Handler, conf dynamic.RedirectScheme, name string) (http.Handler, error) {
-	logger := log.FromContext(middlewares.GetLoggerCtx(ctx, name, typeSchemeName))
-	logger.Debug("Creating middleware")
-	logger.Debugf("Setting up redirection to %s %s", conf.Scheme, conf.Port)
+	logger := middlewares.GetLogger(ctx, name, typeSchemeName)
+	logger.Debug().Msg("Creating middleware")
+	logger.Debug().Msgf("Setting up redirection to %s %s", conf.Scheme, conf.Port)
 
 	if len(conf.Scheme) == 0 {
 		return nil, errors.New("you must provide a target scheme")
@@ -33,10 +32,10 @@ func NewRedirectScheme(ctx context.Context, next http.Handler, conf dynamic.Redi
 		port = ":" + conf.Port
 	}
 
-	return newRedirect(next, uriPattern, conf.Scheme+"://${2}"+port+"${4}", conf.Permanent, rawURLScheme, name)
+	return newRedirect(next, uriPattern, conf.Scheme+"://${2}"+port+"${4}", conf.Permanent, clientRequestURL, name)
 }
 
-func rawURLScheme(req *http.Request) string {
+func clientRequestURL(req *http.Request) string {
 	scheme := schemeHTTP
 	host, port, err := net.SplitHostPort(req.Host)
 	if err != nil {
@@ -64,8 +63,20 @@ func rawURLScheme(req *http.Request) string {
 		scheme = schemeHTTPS
 	}
 
-	if value := req.Header.Get(xForwardedProto); value != "" {
-		scheme = value
+	if xProto := req.Header.Get(xForwardedProto); xProto != "" {
+		// When the initial request is a connection upgrade request,
+		// X-Forwarded-Proto header might have been set by a previous hop to ws(s),
+		// even though the actual protocol used so far is HTTP(s).
+		// Given that we're in a middleware that is only used in the context of HTTP(s) requests,
+		// the only possible valid schemes are one of "http" or "https", so we convert back to them.
+		switch {
+		case strings.EqualFold(xProto, "ws"):
+			scheme = schemeHTTP
+		case strings.EqualFold(xProto, "wss"):
+			scheme = schemeHTTPS
+		default:
+			scheme = xProto
+		}
 	}
 
 	if scheme == schemeHTTP && port == ":80" || scheme == schemeHTTPS && port == ":443" {

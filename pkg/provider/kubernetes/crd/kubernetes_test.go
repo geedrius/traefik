@@ -119,18 +119,18 @@ func TestLoadIngressRouteTCPs(t *testing.T) {
 						"default-test.route-fdd3e9338e47a45efefc": {
 							EntryPoints: []string{"foo"},
 							Service:     "default-test.route-fdd3e9338e47a45efefc",
-							Middlewares: []string{"default-ipwhitelist", "foo-ipwhitelist"},
+							Middlewares: []string{"default-ipallowlist", "foo-ipallowlist"},
 							Rule:        "HostSNI(`foo.com`)",
 						},
 					},
 					Middlewares: map[string]*dynamic.TCPMiddleware{
-						"default-ipwhitelist": {
-							IPWhiteList: &dynamic.TCPIPWhiteList{
+						"default-ipallowlist": {
+							IPAllowList: &dynamic.TCPIPAllowList{
 								SourceRange: []string{"127.0.0.1/32"},
 							},
 						},
-						"foo-ipwhitelist": {
-							IPWhiteList: &dynamic.TCPIPWhiteList{
+						"foo-ipallowlist": {
+							IPAllowList: &dynamic.TCPIPAllowList{
 								SourceRange: []string{"127.0.0.1/32"},
 							},
 						},
@@ -178,7 +178,7 @@ func TestLoadIngressRouteTCPs(t *testing.T) {
 					},
 					Middlewares: map[string]*dynamic.TCPMiddleware{
 						"default-multiple-hyphens": {
-							IPWhiteList: &dynamic.TCPIPWhiteList{
+							IPAllowList: &dynamic.TCPIPAllowList{
 								SourceRange: []string{"127.0.0.1/32"},
 							},
 						},
@@ -220,18 +220,18 @@ func TestLoadIngressRouteTCPs(t *testing.T) {
 						"default-test.route-fdd3e9338e47a45efefc": {
 							EntryPoints: []string{"foo"},
 							Service:     "default-test.route-fdd3e9338e47a45efefc",
-							Middlewares: []string{"default-ipwhitelist", "foo-ipwhitelist", "ipwhitelist@file", "ipwhitelist-foo@file"},
+							Middlewares: []string{"default-ipallowlist", "foo-ipallowlist", "ipallowlist@file", "ipallowlist-foo@file"},
 							Rule:        "HostSNI(`foo.com`)",
 						},
 					},
 					Middlewares: map[string]*dynamic.TCPMiddleware{
-						"default-ipwhitelist": {
-							IPWhiteList: &dynamic.TCPIPWhiteList{
+						"default-ipallowlist": {
+							IPAllowList: &dynamic.TCPIPAllowList{
 								SourceRange: []string{"127.0.0.1/32"},
 							},
 						},
-						"foo-ipwhitelist": {
-							IPWhiteList: &dynamic.TCPIPWhiteList{
+						"foo-ipallowlist": {
+							IPAllowList: &dynamic.TCPIPAllowList{
 								SourceRange: []string{"127.0.0.1/32"},
 							},
 						},
@@ -666,8 +666,7 @@ func TestLoadIngressRouteTCPs(t *testing.T) {
 								},
 								ClientAuthType: "VerifyClientCertIfGiven",
 							},
-							SniStrict:                true,
-							PreferServerCipherSuites: true,
+							SniStrict: true,
 							ALPNProtocols: []string{
 								"h2",
 								"http/1.1",
@@ -1284,7 +1283,10 @@ func TestLoadIngressRouteTCPs(t *testing.T) {
 										URL: "http://[2001:db8:85a3:8d3:1319:8a2e:370:7348]:8080",
 									},
 								},
-								PassHostHeader: func(i bool) *bool { return &i }(true),
+								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 							},
 						},
 						"default-external-svc-with-ipv6-8080": {
@@ -1294,7 +1296,10 @@ func TestLoadIngressRouteTCPs(t *testing.T) {
 										URL: "http://[2001:db8:85a3:8d3:1319:8a2e:370:7347]:8080",
 									},
 								},
-								PassHostHeader: func(i bool) *bool { return &i }(true),
+								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 							},
 						},
 						"default-test-route-6b204d94623b3df4370c": {
@@ -1511,6 +1516,9 @@ func TestLoadIngressRoutes(t *testing.T) {
 									},
 								},
 								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 							},
 						},
 					},
@@ -1579,6 +1587,9 @@ func TestLoadIngressRoutes(t *testing.T) {
 									},
 								},
 								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 							},
 						},
 					},
@@ -1630,6 +1641,9 @@ func TestLoadIngressRoutes(t *testing.T) {
 									},
 								},
 								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 							},
 						},
 					},
@@ -1687,6 +1701,9 @@ func TestLoadIngressRoutes(t *testing.T) {
 									},
 								},
 								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 							},
 						},
 					},
@@ -1735,6 +1752,9 @@ func TestLoadIngressRoutes(t *testing.T) {
 									},
 								},
 								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 							},
 						},
 						"default-test-route-77c62dfe9517144aeeaa": {
@@ -1748,6 +1768,9 @@ func TestLoadIngressRoutes(t *testing.T) {
 									},
 								},
 								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 							},
 						},
 					},
@@ -1806,6 +1829,9 @@ func TestLoadIngressRoutes(t *testing.T) {
 									},
 								},
 								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 							},
 						},
 						"default-whoami2-8080": {
@@ -1819,6 +1845,9 @@ func TestLoadIngressRoutes(t *testing.T) {
 									},
 								},
 								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 							},
 						},
 					},
@@ -1872,6 +1901,9 @@ func TestLoadIngressRoutes(t *testing.T) {
 									},
 								},
 								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 							},
 						},
 					},
@@ -1918,6 +1950,9 @@ func TestLoadIngressRoutes(t *testing.T) {
 									},
 								},
 								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 							},
 						},
 					},
@@ -1989,6 +2024,9 @@ func TestLoadIngressRoutes(t *testing.T) {
 									},
 								},
 								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 							},
 						},
 						"default-whoami5-8080": {
@@ -2002,6 +2040,9 @@ func TestLoadIngressRoutes(t *testing.T) {
 									},
 								},
 								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 							},
 						},
 						"default-wrr2": {
@@ -2029,6 +2070,9 @@ func TestLoadIngressRoutes(t *testing.T) {
 									},
 								},
 								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 							},
 						},
 						"default-whoami7-8080": {
@@ -2042,6 +2086,9 @@ func TestLoadIngressRoutes(t *testing.T) {
 									},
 								},
 								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 							},
 						},
 					},
@@ -2109,6 +2156,9 @@ func TestLoadIngressRoutes(t *testing.T) {
 									},
 								},
 								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 							},
 						},
 					},
@@ -2188,6 +2238,9 @@ func TestLoadIngressRoutes(t *testing.T) {
 									},
 								},
 								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 							},
 						},
 						"default-whoami5-8080": {
@@ -2201,6 +2254,9 @@ func TestLoadIngressRoutes(t *testing.T) {
 									},
 								},
 								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 							},
 						},
 					},
@@ -2271,6 +2327,9 @@ func TestLoadIngressRoutes(t *testing.T) {
 									},
 								},
 								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 							},
 						},
 						"foo-wrr1": {
@@ -2306,6 +2365,9 @@ func TestLoadIngressRoutes(t *testing.T) {
 									},
 								},
 								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 							},
 						},
 						"foo-mirror1": {
@@ -2329,6 +2391,9 @@ func TestLoadIngressRoutes(t *testing.T) {
 									},
 								},
 								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 							},
 						},
 						"bar-mirrored": {
@@ -2431,6 +2496,9 @@ func TestLoadIngressRoutes(t *testing.T) {
 									},
 								},
 								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 							},
 						},
 						"default-whoami5-8080": {
@@ -2444,6 +2512,9 @@ func TestLoadIngressRoutes(t *testing.T) {
 									},
 								},
 								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 							},
 						},
 					},
@@ -2515,6 +2586,9 @@ func TestLoadIngressRoutes(t *testing.T) {
 									},
 								},
 								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 							},
 						},
 						"default-whoami5-8080": {
@@ -2528,6 +2602,9 @@ func TestLoadIngressRoutes(t *testing.T) {
 									},
 								},
 								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 							},
 						},
 					},
@@ -2585,6 +2662,9 @@ func TestLoadIngressRoutes(t *testing.T) {
 									},
 								},
 								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 							},
 						},
 						"default-whoami2-8080": {
@@ -2598,6 +2678,9 @@ func TestLoadIngressRoutes(t *testing.T) {
 									},
 								},
 								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 							},
 						},
 					},
@@ -2718,6 +2801,9 @@ func TestLoadIngressRoutes(t *testing.T) {
 									},
 								},
 								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 							},
 						},
 					},
@@ -2748,8 +2834,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 								},
 								ClientAuthType: "VerifyClientCertIfGiven",
 							},
-							SniStrict:                true,
-							PreferServerCipherSuites: true,
+							SniStrict: true,
 							ALPNProtocols: []string{
 								"h2",
 								"http/1.1",
@@ -2788,6 +2873,9 @@ func TestLoadIngressRoutes(t *testing.T) {
 									},
 								},
 								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 							},
 						},
 					},
@@ -2836,6 +2924,9 @@ func TestLoadIngressRoutes(t *testing.T) {
 									},
 								},
 								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 							},
 						},
 					},
@@ -2862,8 +2953,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 								},
 								ClientAuthType: "VerifyClientCertIfGiven",
 							},
-							SniStrict:                true,
-							PreferServerCipherSuites: true,
+							SniStrict: true,
 							ALPNProtocols: []string{
 								"h2",
 								"http/1.1",
@@ -2906,6 +2996,9 @@ func TestLoadIngressRoutes(t *testing.T) {
 									},
 								},
 								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 							},
 						},
 					},
@@ -2976,6 +3069,9 @@ func TestLoadIngressRoutes(t *testing.T) {
 									},
 								},
 								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 							},
 						},
 					},
@@ -3044,6 +3140,9 @@ func TestLoadIngressRoutes(t *testing.T) {
 									},
 								},
 								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 							},
 						},
 					},
@@ -3101,6 +3200,9 @@ func TestLoadIngressRoutes(t *testing.T) {
 									},
 								},
 								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 							},
 						},
 					},
@@ -3159,6 +3261,9 @@ func TestLoadIngressRoutes(t *testing.T) {
 									},
 								},
 								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 							},
 						},
 					},
@@ -3203,6 +3308,9 @@ func TestLoadIngressRoutes(t *testing.T) {
 									},
 								},
 								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 							},
 						},
 					},
@@ -3246,6 +3354,9 @@ func TestLoadIngressRoutes(t *testing.T) {
 									},
 								},
 								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 							},
 						},
 					},
@@ -3289,6 +3400,9 @@ func TestLoadIngressRoutes(t *testing.T) {
 									},
 								},
 								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 							},
 						},
 					},
@@ -3536,6 +3650,9 @@ func TestLoadIngressRoutes(t *testing.T) {
 									},
 								},
 								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 							},
 						},
 					},
@@ -3578,7 +3695,7 @@ func TestLoadIngressRoutes(t *testing.T) {
 									},
 								},
 								PassHostHeader:     Bool(false),
-								ResponseForwarding: &dynamic.ResponseForwarding{FlushInterval: "10s"},
+								ResponseForwarding: &dynamic.ResponseForwarding{FlushInterval: ptypes.Duration(10 * time.Second)},
 							},
 						},
 					},
@@ -3633,6 +3750,9 @@ func TestLoadIngressRoutes(t *testing.T) {
 									},
 								},
 								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 							},
 						},
 					},
@@ -3690,6 +3810,9 @@ func TestLoadIngressRoutes(t *testing.T) {
 									},
 								},
 								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 							},
 						},
 					},
@@ -3736,6 +3859,9 @@ func TestLoadIngressRoutes(t *testing.T) {
 									},
 								},
 								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 							},
 						},
 					},
@@ -3777,6 +3903,9 @@ func TestLoadIngressRoutes(t *testing.T) {
 									},
 								},
 								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 							},
 						},
 					},
@@ -3816,6 +3945,9 @@ func TestLoadIngressRoutes(t *testing.T) {
 									},
 								},
 								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 							},
 						},
 					},
@@ -3855,6 +3987,9 @@ func TestLoadIngressRoutes(t *testing.T) {
 									},
 								},
 								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 							},
 						},
 					},
@@ -3919,6 +4054,13 @@ func TestLoadIngressRoutes(t *testing.T) {
 								PingTimeout:           ptypes.Duration(42 * time.Second),
 							},
 							PeerCertURI: "foo://bar",
+							Spiffe: &dynamic.Spiffe{
+								IDs: []string{
+									"spiffe://foo/buz",
+									"spiffe://bar/biz",
+								},
+								TrustDomain: "spiffe://lol",
+							},
 						},
 						"default-test": {
 							ServerName: "test",
@@ -3945,7 +4087,10 @@ func TestLoadIngressRoutes(t *testing.T) {
 										URL: "https://external.domain:443",
 									},
 								},
-								PassHostHeader:   Bool(true),
+								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 								ServersTransport: "default-test",
 							},
 						},
@@ -3959,7 +4104,10 @@ func TestLoadIngressRoutes(t *testing.T) {
 										URL: "https://10.10.0.6:8443",
 									},
 								},
-								PassHostHeader:   Bool(true),
+								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 								ServersTransport: "default-default-test",
 							},
 						},
@@ -4032,6 +4180,100 @@ func TestLoadIngressRoutes(t *testing.T) {
 						"default-test-route-6b204d94623b3df4370c": {
 							LoadBalancer: &dynamic.ServersLoadBalancer{
 								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
+							},
+						},
+					},
+					ServersTransports: map[string]*dynamic.ServersTransport{},
+				},
+				TLS: &dynamic.TLSConfiguration{},
+			},
+		},
+		{
+			desc:               "TraefikService, empty service allowed",
+			allowEmptyServices: true,
+			paths:              []string{"services.yml", "with_empty_services_ts.yml"},
+			expected: &dynamic.Configuration{
+				UDP: &dynamic.UDPConfiguration{
+					Routers:  map[string]*dynamic.UDPRouter{},
+					Services: map[string]*dynamic.UDPService{},
+				},
+				TCP: &dynamic.TCPConfiguration{
+					Routers:     map[string]*dynamic.TCPRouter{},
+					Middlewares: map[string]*dynamic.TCPMiddleware{},
+					Services:    map[string]*dynamic.TCPService{},
+				},
+				HTTP: &dynamic.HTTPConfiguration{
+					Routers: map[string]*dynamic.Router{
+						"default-test-route-6b204d94623b3df4370c": {
+							EntryPoints: []string{"foo"},
+							Middlewares: []string{"default-test-errorpage"},
+							Service:     "default-test-route-6b204d94623b3df4370c",
+							Rule:        "Host(`foo.com`) && PathPrefix(`/bar`)",
+							Priority:    12,
+						},
+					},
+					Middlewares: map[string]*dynamic.Middleware{
+						"default-test-errorpage": {
+							Errors: &dynamic.ErrorPage{
+								Service: "default-test-errorpage-errorpage-service",
+							},
+						},
+					},
+					Services: map[string]*dynamic.Service{
+						"default-test-route-6b204d94623b3df4370c": {
+							Weighted: &dynamic.WeightedRoundRobin{
+								Services: []dynamic.WRRService{
+									{
+										Name:   "default-test-weighted",
+										Weight: func(i int) *int { return &i }(1),
+									},
+									{
+										Name:   "default-test-mirror",
+										Weight: func(i int) *int { return &i }(1),
+									},
+								},
+							},
+						},
+						"default-test-errorpage-errorpage-service": {
+							LoadBalancer: &dynamic.ServersLoadBalancer{
+								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
+							},
+						},
+						"default-test-weighted": {
+							Weighted: &dynamic.WeightedRoundRobin{
+								Services: []dynamic.WRRService{
+									{
+										Name:   "default-whoami-without-endpoints-subsets-80",
+										Weight: func(i int) *int { return &i }(1),
+									},
+								},
+							},
+						},
+						"default-test-mirror": {
+							Mirroring: &dynamic.Mirroring{
+								Service: "default-whoami-without-endpoints-subsets-80",
+								Mirrors: []dynamic.MirrorService{
+									{
+										Name: "default-whoami-without-endpoints-subsets-80",
+									},
+									{
+										Name: "default-test-weighted",
+									},
+								},
+							},
+						},
+						"default-whoami-without-endpoints-subsets-80": {
+							LoadBalancer: &dynamic.ServersLoadBalancer{
+								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 							},
 						},
 					},
@@ -4902,8 +5144,7 @@ func TestCrossNamespace(t *testing.T) {
 					Middlewares: map[string]*dynamic.Middleware{
 						"cross-ns-stripprefix": {
 							StripPrefix: &dynamic.StripPrefix{
-								Prefixes:   []string{"/stripit"},
-								ForceSlash: false,
+								Prefixes: []string{"/stripit"},
 							},
 						},
 					},
@@ -4919,6 +5160,9 @@ func TestCrossNamespace(t *testing.T) {
 									},
 								},
 								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 							},
 						},
 					},
@@ -4970,8 +5214,7 @@ func TestCrossNamespace(t *testing.T) {
 					Middlewares: map[string]*dynamic.Middleware{
 						"cross-ns-stripprefix": {
 							StripPrefix: &dynamic.StripPrefix{
-								Prefixes:   []string{"/stripit"},
-								ForceSlash: false,
+								Prefixes: []string{"/stripit"},
 							},
 						},
 						"default-test-errorpage": {
@@ -4994,6 +5237,9 @@ func TestCrossNamespace(t *testing.T) {
 									},
 								},
 								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 							},
 						},
 						"default-test-crossnamespace-route-9313b71dbe6a649d5049": {
@@ -5007,6 +5253,9 @@ func TestCrossNamespace(t *testing.T) {
 									},
 								},
 								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 							},
 						},
 						"default-test-errorpage-errorpage-service": {
@@ -5020,6 +5269,9 @@ func TestCrossNamespace(t *testing.T) {
 									},
 								},
 								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 							},
 						},
 						"default-test-crossnamespace-route-a1963878aac7331b7950": {
@@ -5033,6 +5285,9 @@ func TestCrossNamespace(t *testing.T) {
 									},
 								},
 								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 							},
 						},
 					},
@@ -5107,7 +5362,10 @@ func TestCrossNamespace(t *testing.T) {
 										URL: "http://10.10.0.2:80",
 									},
 								},
-								PassHostHeader:   Bool(true),
+								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 								ServersTransport: "foo-test@kubernetescrd",
 							},
 						},
@@ -5122,6 +5380,9 @@ func TestCrossNamespace(t *testing.T) {
 									},
 								},
 								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 							},
 						},
 						"default-tr-svc-wrr1": {
@@ -5177,6 +5438,9 @@ func TestCrossNamespace(t *testing.T) {
 									},
 								},
 								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 							},
 						},
 					},
@@ -5223,6 +5487,9 @@ func TestCrossNamespace(t *testing.T) {
 									},
 								},
 								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 							},
 						},
 						"cross-ns-tr-svc-mirror2": {
@@ -5247,6 +5514,9 @@ func TestCrossNamespace(t *testing.T) {
 									},
 								},
 								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 							},
 						},
 					},
@@ -5290,7 +5560,10 @@ func TestCrossNamespace(t *testing.T) {
 										URL: "http://10.10.0.2:80",
 									},
 								},
-								PassHostHeader:   Bool(true),
+								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 								ServersTransport: "cross-ns-st-cross-ns@kubernetescrd",
 							},
 						},
@@ -5383,6 +5656,9 @@ func TestCrossNamespace(t *testing.T) {
 									},
 								},
 								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 							},
 						},
 					},
@@ -5427,6 +5703,9 @@ func TestCrossNamespace(t *testing.T) {
 									},
 								},
 								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 							},
 						},
 					},
@@ -5455,18 +5734,18 @@ func TestCrossNamespace(t *testing.T) {
 						"default-test.route-fdd3e9338e47a45efefc": {
 							EntryPoints: []string{"foo"},
 							Service:     "default-test.route-fdd3e9338e47a45efefc",
-							Middlewares: []string{"default-ipwhitelist"},
+							Middlewares: []string{"default-ipallowlist"},
 							Rule:        "HostSNI(`foo.com`)",
 						},
 					},
 					Middlewares: map[string]*dynamic.TCPMiddleware{
-						"default-ipwhitelist": {
-							IPWhiteList: &dynamic.TCPIPWhiteList{
+						"default-ipallowlist": {
+							IPAllowList: &dynamic.TCPIPAllowList{
 								SourceRange: []string{"127.0.0.1/32"},
 							},
 						},
-						"cross-ns-ipwhitelist": {
-							IPWhiteList: &dynamic.TCPIPWhiteList{
+						"cross-ns-ipallowlist": {
+							IPAllowList: &dynamic.TCPIPAllowList{
 								SourceRange: []string{"127.0.0.1/32"},
 							},
 						},
@@ -5509,24 +5788,24 @@ func TestCrossNamespace(t *testing.T) {
 						"default-test.route-fdd3e9338e47a45efefc": {
 							EntryPoints: []string{"foo"},
 							Service:     "default-test.route-fdd3e9338e47a45efefc",
-							Middlewares: []string{"default-ipwhitelist"},
+							Middlewares: []string{"default-ipallowlist"},
 							Rule:        "HostSNI(`foo.com`)",
 						},
 						"default-test.route-f44ce589164e656d231c": {
 							EntryPoints: []string{"foo"},
 							Service:     "default-test.route-f44ce589164e656d231c",
-							Middlewares: []string{"cross-ns-ipwhitelist"},
+							Middlewares: []string{"cross-ns-ipallowlist"},
 							Rule:        "HostSNI(`bar.com`)",
 						},
 					},
 					Middlewares: map[string]*dynamic.TCPMiddleware{
-						"default-ipwhitelist": {
-							IPWhiteList: &dynamic.TCPIPWhiteList{
+						"default-ipallowlist": {
+							IPAllowList: &dynamic.TCPIPAllowList{
 								SourceRange: []string{"127.0.0.1/32"},
 							},
 						},
-						"cross-ns-ipwhitelist": {
-							IPWhiteList: &dynamic.TCPIPWhiteList{
+						"cross-ns-ipallowlist": {
+							IPAllowList: &dynamic.TCPIPAllowList{
 								SourceRange: []string{"127.0.0.1/32"},
 							},
 						},
@@ -5932,6 +6211,9 @@ func TestExternalNameService(t *testing.T) {
 									},
 								},
 								PassHostHeader: Bool(true),
+								ResponseForwarding: &dynamic.ResponseForwarding{
+									FlushInterval: ptypes.Duration(100 * time.Millisecond),
+								},
 							},
 						},
 					},

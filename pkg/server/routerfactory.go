@@ -3,9 +3,9 @@ package server
 import (
 	"context"
 
+	"github.com/rs/zerolog/log"
 	"github.com/traefik/traefik/v2/pkg/config/runtime"
 	"github.com/traefik/traefik/v2/pkg/config/static"
-	"github.com/traefik/traefik/v2/pkg/log"
 	"github.com/traefik/traefik/v2/pkg/metrics"
 	"github.com/traefik/traefik/v2/pkg/server/middleware"
 	tcpmiddleware "github.com/traefik/traefik/v2/pkg/server/middleware/tcp"
@@ -31,6 +31,8 @@ type RouterFactory struct {
 
 	chainBuilder *middleware.ChainBuilder
 	tlsManager   *tls.Manager
+
+	cancelPrevState func()
 }
 
 // NewRouterFactory creates a new RouterFactory.
@@ -42,7 +44,7 @@ func NewRouterFactory(staticConfiguration static.Configuration, managerFactory *
 		protocol, err := cfg.GetProtocol()
 		if err != nil {
 			// Should never happen because Traefik should not start if protocol is invalid.
-			log.WithoutContext().Errorf("Invalid protocol: %v", err)
+			log.Error().Err(err).Msg("Invalid protocol")
 		}
 
 		if protocol == "udp" {
@@ -65,19 +67,24 @@ func NewRouterFactory(staticConfiguration static.Configuration, managerFactory *
 
 // CreateRouters creates new TCPRouters and UDPRouters.
 func (f *RouterFactory) CreateRouters(rtConf *runtime.Configuration) (map[string]*tcprouter.Router, map[string]udptypes.Handler) {
-	ctx := context.Background()
+	if f.cancelPrevState != nil {
+		f.cancelPrevState()
+	}
+
+	var ctx context.Context
+	ctx, f.cancelPrevState = context.WithCancel(context.Background())
 
 	// HTTP
 	serviceManager := f.managerFactory.Build(rtConf)
 
 	middlewaresBuilder := middleware.NewBuilder(rtConf.Middlewares, serviceManager, f.pluginBuilder)
 
-	routerManager := router.NewManager(rtConf, serviceManager, middlewaresBuilder, f.chainBuilder, f.metricsRegistry)
+	routerManager := router.NewManager(rtConf, serviceManager, middlewaresBuilder, f.chainBuilder, f.metricsRegistry, f.tlsManager)
 
 	handlersNonTLS := routerManager.BuildHandlers(ctx, f.entryPointsTCP, false)
 	handlersTLS := routerManager.BuildHandlers(ctx, f.entryPointsTCP, true)
 
-	serviceManager.LaunchHealthCheck()
+	serviceManager.LaunchHealthCheck(ctx)
 
 	// TCP
 	svcTCPManager := tcp.NewManager(rtConf)

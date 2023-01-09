@@ -83,7 +83,6 @@
       "defaultRule": "xxxx",
       "tls": {
         "ca": "xxxx",
-        "caOptional": true,
         "cert": "xxxx",
         "key": "xxxx",
         "insecureSkipVerify": true
@@ -111,7 +110,6 @@
       "dcosToken": "xxxx",
       "tls": {
         "ca": "xxxx",
-        "caOptional": true,
         "cert": "xxxx",
         "key": "xxxx",
         "insecureSkipVerify": true
@@ -189,7 +187,6 @@
         "token": "xxxx",
         "tls": {
           "ca": "xxxx",
-          "caOptional": true,
           "cert": "xxxx",
           "key": "xxxx",
           "insecureSkipVerify": true
@@ -207,7 +204,6 @@
       "cache": true,
       "exposedByDefault": true,
       "defaultRule": "xxxx",
-      "namespace": "xxxx",
       "namespaces": [
         "xxxx",
         "xxxx"
@@ -223,22 +219,20 @@
         "Cluster2"
       ],
       "autoDiscoverClusters": true,
+      "ecsAnywhere": true,
       "region": "Awsregion",
       "accessKeyID": "xxxx",
       "secretAccessKey": "xxxx"
     },
     "consul": {
       "rootKey": "xxxx",
-      "username": "xxxx",
-      "password": "xxxx",
+      "token": "xxxx",
       "tls": {
         "ca": "xxxx",
-        "caOptional": true,
         "cert": "xxxx",
         "key": "xxxx",
         "insecureSkipVerify": true
       },
-      "namespace": "xxxx",
       "namespaces": [
         "xxxx",
         "xxxx"
@@ -246,39 +240,30 @@
     },
     "etcd": {
       "rootKey": "xxxx",
-      "username": "xxxx",
-      "password": "xxxx",
       "tls": {
         "ca": "xxxx",
-        "caOptional": true,
         "cert": "xxxx",
         "key": "xxxx",
         "insecureSkipVerify": true
-      }
+      },
+      "username": "xxxx",
+      "password": "xxxx"
     },
     "zooKeeper": {
       "rootKey": "xxxx",
       "username": "xxxx",
-      "password": "xxxx",
-      "tls": {
-        "ca": "xxxx",
-        "caOptional": true,
-        "cert": "xxxx",
-        "key": "xxxx",
-        "insecureSkipVerify": true
-      }
+      "password": "xxxx"
     },
     "redis": {
       "rootKey": "xxxx",
-      "username": "xxxx",
-      "password": "xxxx",
       "tls": {
         "ca": "xxxx",
-        "caOptional": true,
         "cert": "xxxx",
         "key": "xxxx",
         "insecureSkipVerify": true
-      }
+      },
+      "username": "xxxx",
+      "password": "xxxx"
     },
     "http": {
       "endpoint": "xxxx",
@@ -286,7 +271,6 @@
       "pollTimeout": "42ns",
       "tls": {
         "ca": "xxxx",
-        "caOptional": true,
         "cert": "xxxx",
         "key": "xxxx",
         "insecureSkipVerify": true
@@ -343,8 +327,12 @@
   },
   "log": {
     "level": "Level",
+    "format": "json",
     "filePath": "xxxx",
-    "format": "json"
+    "maxSize": 5,
+    "maxAge": 3,
+    "maxBackups": 4,
+    "compress": true
   },
   "accessLog": {
     "filePath": "xxxx",
@@ -397,7 +385,9 @@
     },
     "datadog": {
       "localAgentHostPort": "xxxx",
-      "globalTag": "foobar",
+      "globalTags": {
+        "foobar": "foobar"
+      },
       "debug": true,
       "prioritySampling": true,
       "traceIDHeaderName": "foobar",
@@ -452,9 +442,6 @@
         "tlsChallenge": {}
       }
     }
-  },
-  "pilot": {
-    "token": "xxxx"
   },
   "experimental": {
     "plugins": {

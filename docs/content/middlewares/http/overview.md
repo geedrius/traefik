@@ -142,7 +142,7 @@ http:
 | [Errors](errorpages.md)                   | Defines custom error pages                        | Request Lifecycle           |
 | [ForwardAuth](forwardauth.md)             | Delegates Authentication                          | Security, Authentication    |
 | [Headers](headers.md)                     | Adds / Updates headers                            | Security                    |
-| [IPWhiteList](ipwhitelist.md)             | Limits the allowed client IPs                     | Security, Request lifecycle |
+| [IPAllowList](ipallowlist.md)             | Limits the allowed client IPs                     | Security, Request lifecycle |
 | [InFlightReq](inflightreq.md)             | Limits the number of simultaneous connections     | Security, Request lifecycle |
 | [PassTLSClientCert](passtlsclientcert.md) | Adds Client Certificates in a Header              | Security                    |
 | [RateLimit](ratelimit.md)                 | Limits the call frequency                         | Security, Request lifecycle |
@@ -156,4 +156,6 @@ http:
 
 ## Community Middlewares
 
-Please take a look at the community-contributed plugins in the [plugin catalog](https://pilot.traefik.io/plugins).
+Please take a look at the community-contributed plugins in the [plugin catalog](https://plugins.traefik.io/plugins).
+
+{!traefik-for-business-applications.md!}

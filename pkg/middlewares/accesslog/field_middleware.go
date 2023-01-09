@@ -4,7 +4,10 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/vulcand/oxy/utils"
+	"github.com/rs/zerolog/log"
+	"github.com/traefik/traefik/v2/pkg/logs"
+	"github.com/traefik/traefik/v2/pkg/middlewares/capture"
+	"github.com/vulcand/oxy/v2/utils"
 )
 
 // FieldApply function hook to add data in accesslog.
@@ -39,26 +42,26 @@ func (f *FieldHandler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	}
 }
 
-// AddServiceFields add service fields.
-func AddServiceFields(rw http.ResponseWriter, req *http.Request, next http.Handler, data *LogData) {
-	data.Core[ServiceURL] = req.URL // note that this is *not* the original incoming URL
-	data.Core[ServiceAddr] = req.URL.Host
-
-	next.ServeHTTP(rw, req)
-}
-
 // AddOriginFields add origin fields.
 func AddOriginFields(rw http.ResponseWriter, req *http.Request, next http.Handler, data *LogData) {
-	crw := newCaptureResponseWriter(rw)
 	start := time.Now().UTC()
 
-	next.ServeHTTP(crw, req)
+	next.ServeHTTP(rw, req)
 
 	// use UTC to handle switchover of daylight saving correctly
 	data.Core[OriginDuration] = time.Now().UTC().Sub(start)
-	data.Core[OriginStatus] = crw.Status()
-	// make copy of headers so we can ensure there is no subsequent mutation during response processing
+	// make copy of headers, so we can ensure there is no subsequent mutation
+	// during response processing
 	data.OriginResponse = make(http.Header)
-	utils.CopyHeaders(data.OriginResponse, crw.Header())
-	data.Core[OriginContentSize] = crw.Size()
+	utils.CopyHeaders(data.OriginResponse, rw.Header())
+
+	ctx := req.Context()
+	capt, err := capture.FromContext(ctx)
+	if err != nil {
+		log.Ctx(ctx).Error().Err(err).Str(logs.MiddlewareType, "AccessLogs").Msg("Could not get Capture")
+		return
+	}
+
+	data.Core[OriginStatus] = capt.StatusCode()
+	data.Core[OriginContentSize] = capt.ResponseSize()
 }

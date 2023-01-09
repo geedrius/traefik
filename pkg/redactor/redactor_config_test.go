@@ -82,8 +82,8 @@ func init() {
 						Scheme:          "foo",
 						Path:            "foo",
 						Port:            42,
-						Interval:        "foo",
-						Timeout:         "foo",
+						Interval:        ptypes.Duration(111 * time.Second),
+						Timeout:         ptypes.Duration(111 * time.Second),
 						Hostname:        "foo",
 						FollowRedirects: boolPtr(true),
 						Headers: map[string]string{
@@ -92,7 +92,7 @@ func init() {
 					},
 					PassHostHeader: boolPtr(true),
 					ResponseForwarding: &dynamic.ResponseForwarding{
-						FlushInterval: "foo",
+						FlushInterval: ptypes.Duration(111 * time.Second),
 					},
 					ServersTransport: "foo",
 					Servers: []dynamic.Server{
@@ -175,8 +175,7 @@ func init() {
 					Prefix: "foo",
 				},
 				StripPrefix: &dynamic.StripPrefix{
-					Prefixes:   []string{"foo"},
-					ForceSlash: true,
+					Prefixes: []string{"foo"},
 				},
 				StripPrefixRegex: &dynamic.StripPrefixRegex{
 					Regex: []string{"foo"},
@@ -191,7 +190,7 @@ func init() {
 				Chain: &dynamic.Chain{
 					Middlewares: []string{"foo"},
 				},
-				IPWhiteList: &dynamic.IPWhiteList{
+				IPAllowList: &dynamic.IPAllowList{
 					SourceRange: []string{"foo"},
 					IPStrategy: &dynamic.IPStrategy{
 						Depth:       42,
@@ -211,11 +210,7 @@ func init() {
 					AddVaryHeader:                     true,
 					AllowedHosts:                      []string{"foo"},
 					HostsProxyHeaders:                 []string{"foo"},
-					SSLRedirect:                       true,
-					SSLTemporaryRedirect:              true,
-					SSLHost:                           "foo",
 					SSLProxyHeaders:                   map[string]string{"foo": "bar"},
-					SSLForceHost:                      true,
 					STSSeconds:                        42,
 					STSIncludeSubdomains:              true,
 					STSPreload:                        true,
@@ -228,7 +223,6 @@ func init() {
 					ContentSecurityPolicy:             "foo",
 					PublicKey:                         "foo",
 					ReferrerPolicy:                    "foo",
-					FeaturePolicy:                     "foo",
 					PermissionsPolicy:                 "foo",
 					IsDevelopment:                     true,
 				},
@@ -278,7 +272,6 @@ func init() {
 					Address: "127.0.0.1",
 					TLS: &types.ClientTLS{
 						CA:                 "ca.pem",
-						CAOptional:         true,
 						Cert:               "cert.pem",
 						Key:                "cert.pem",
 						InsecureSkipVerify: true,
@@ -344,9 +337,7 @@ func init() {
 					Attempts:        42,
 					InitialInterval: 42,
 				},
-				ContentType: &dynamic.ContentType{
-					AutoDetect: true,
-				},
+				ContentType: &dynamic.ContentType{},
 				Plugin: map[string]dynamic.PluginConf{
 					"foo": {
 						"answer": struct{ Answer int }{
@@ -442,8 +433,7 @@ func init() {
 					CAFiles:        []traefiktls.FileOrContent{"ca.pem"},
 					ClientAuthType: "RequireAndVerifyClientCert",
 				},
-				SniStrict:                true,
-				PreferServerCipherSuites: true,
+				SniStrict: true,
 			},
 		},
 		Certificates: []*traefiktls.CertAndStores{
@@ -593,7 +583,6 @@ func TestDo_staticConfiguration(t *testing.T) {
 		DefaultRule: "PathPrefix(`/`)",
 		TLS: &types.ClientTLS{
 			CA:                 "myCa",
-			CAOptional:         true,
 			Cert:               "mycert.pem",
 			Key:                "mycert.key",
 			InsecureSkipVerify: true,
@@ -616,7 +605,6 @@ func TestDo_staticConfiguration(t *testing.T) {
 		DCOSToken:        "foobar",
 		TLS: &types.ClientTLS{
 			CA:                 "myCa",
-			CAOptional:         true,
 			Cert:               "mycert.pem",
 			Key:                "mycert.key",
 			InsecureSkipVerify: true,
@@ -692,7 +680,6 @@ func TestDo_staticConfiguration(t *testing.T) {
 				Token:      "MyToken",
 				TLS: &types.ClientTLS{
 					CA:                 "myCa",
-					CAOptional:         true,
 					Cert:               "mycert.pem",
 					Key:                "mycert.key",
 					InsecureSkipVerify: true,
@@ -711,7 +698,6 @@ func TestDo_staticConfiguration(t *testing.T) {
 			ExposedByDefault:  true,
 			DefaultRule:       "PathPrefix(`/`)",
 		},
-		Namespace:  "ns",
 		Namespaces: []string{"ns1", "ns2"},
 	}
 
@@ -722,6 +708,7 @@ func TestDo_staticConfiguration(t *testing.T) {
 		DefaultRule:          "PathPrefix(`/`)",
 		Clusters:             []string{"Cluster1", "Cluster2"},
 		AutoDiscoverClusters: true,
+		ECSAnywhere:          true,
 		Region:               "Awsregion",
 		AccessKeyID:          "AwsAccessKeyID",
 		SecretAccessKey:      "AwsSecretAccessKey",
@@ -731,17 +718,14 @@ func TestDo_staticConfiguration(t *testing.T) {
 		Provider: kv.Provider{
 			RootKey:   "RootKey",
 			Endpoints: nil,
-			Username:  "username",
-			Password:  "password",
-			TLS: &types.ClientTLS{
-				CA:                 "myCa",
-				CAOptional:         true,
-				Cert:               "mycert.pem",
-				Key:                "mycert.key",
-				InsecureSkipVerify: true,
-			},
 		},
-		Namespace:  "ns",
+		Token: "secret",
+		TLS: &types.ClientTLS{
+			CA:                 "myCa",
+			Cert:               "mycert.pem",
+			Key:                "mycert.key",
+			InsecureSkipVerify: true,
+		},
 		Namespaces: []string{"ns1", "ns2"},
 	}
 
@@ -749,15 +733,14 @@ func TestDo_staticConfiguration(t *testing.T) {
 		Provider: kv.Provider{
 			RootKey:   "RootKey",
 			Endpoints: nil,
-			Username:  "username",
-			Password:  "password",
-			TLS: &types.ClientTLS{
-				CA:                 "myCa",
-				CAOptional:         true,
-				Cert:               "mycert.pem",
-				Key:                "mycert.key",
-				InsecureSkipVerify: true,
-			},
+		},
+		Username: "username",
+		Password: "password",
+		TLS: &types.ClientTLS{
+			CA:                 "myCa",
+			Cert:               "mycert.pem",
+			Key:                "mycert.key",
+			InsecureSkipVerify: true,
 		},
 	}
 
@@ -765,31 +748,23 @@ func TestDo_staticConfiguration(t *testing.T) {
 		Provider: kv.Provider{
 			RootKey:   "RootKey",
 			Endpoints: nil,
-			Username:  "username",
-			Password:  "password",
-			TLS: &types.ClientTLS{
-				CA:                 "myCa",
-				CAOptional:         true,
-				Cert:               "mycert.pem",
-				Key:                "mycert.key",
-				InsecureSkipVerify: true,
-			},
 		},
+		Username: "username",
+		Password: "password",
 	}
 
 	config.Providers.Redis = &redis.Provider{
 		Provider: kv.Provider{
 			RootKey:   "RootKey",
 			Endpoints: nil,
-			Username:  "username",
-			Password:  "password",
-			TLS: &types.ClientTLS{
-				CA:                 "myCa",
-				CAOptional:         true,
-				Cert:               "mycert.pem",
-				Key:                "mycert.key",
-				InsecureSkipVerify: true,
-			},
+		},
+		Username: "username",
+		Password: "password",
+		TLS: &types.ClientTLS{
+			CA:                 "myCa",
+			Cert:               "mycert.pem",
+			Key:                "mycert.key",
+			InsecureSkipVerify: true,
 		},
 	}
 
@@ -799,7 +774,6 @@ func TestDo_staticConfiguration(t *testing.T) {
 		PollTimeout:  42,
 		TLS: &types.ClientTLS{
 			CA:                 "myCa",
-			CAOptional:         true,
 			Cert:               "mycert.pem",
 			Key:                "mycert.key",
 			InsecureSkipVerify: true,
@@ -853,9 +827,13 @@ func TestDo_staticConfiguration(t *testing.T) {
 	}
 
 	config.Log = &types.TraefikLog{
-		Level:    "Level",
-		FilePath: "/foo/path",
-		Format:   "json",
+		Level:      "Level",
+		Format:     "json",
+		FilePath:   "/foo/path",
+		MaxSize:    5,
+		MaxAge:     3,
+		MaxBackups: 4,
+		Compress:   true,
 	}
 
 	config.AccessLog = &types.AccessLog{
@@ -907,7 +885,7 @@ func TestDo_staticConfiguration(t *testing.T) {
 		},
 		Datadog: &datadog.Config{
 			LocalAgentHostPort:         "foobar",
-			GlobalTag:                  "foobar",
+			GlobalTags:                 map[string]string{"foobar": "foobar"},
 			Debug:                      true,
 			PrioritySampling:           true,
 			TraceIDHeaderName:          "foobar",
@@ -963,10 +941,6 @@ func TestDo_staticConfiguration(t *testing.T) {
 				TLSChallenge: &acme.TLSChallenge{},
 			},
 		},
-	}
-
-	config.Pilot = &static.Pilot{
-		Token: "token",
 	}
 
 	config.Experimental = &static.Experimental{
