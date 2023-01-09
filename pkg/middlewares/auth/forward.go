@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -50,6 +51,7 @@ type forwardAuth struct {
 	trustForwardHeader       *bool
 	authRequestHeaders       []string
 	maxResponseBodySize      int64
+	forwardBody              bool
 }
 
 // NewForward creates a forward auth middleware.
@@ -64,6 +66,7 @@ func NewForward(ctx context.Context, next http.Handler, config dynamic.ForwardAu
 		name:                name,
 		trustForwardHeader:  config.TrustForwardHeader,
 		authRequestHeaders:  config.AuthRequestHeaders,
+		forwardBody:         config.ForwardBody,
 	}
 
 	if config.MaxResponseBodySize != nil {
@@ -129,8 +132,25 @@ func (fa *forwardAuth) GetTracingInformation() (string, ext.SpanKindEnum) {
 func (fa *forwardAuth) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	logger := log.FromContext(middlewares.GetLoggerCtx(req.Context(), fa.name, forwardedTypeName))
 
+	// get request body if forwarding is enabled
+	var authReqBody io.Reader
+	if fa.forwardBody {
+		reqBody, readErr := io.ReadAll(req.Body)
+		if readErr != nil {
+			logger.Debugf("Error reading request body %s. Cause: %s", fa.address, readErr)
+			tracing.SetErrorWithEvent(req, "Error reading request body %s. Cause: %s", fa.address, readErr)
+
+			rw.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		defer req.Body.Close()
+
+		req.Body = io.NopCloser(bytes.NewReader(reqBody))
+		authReqBody = bytes.NewReader(reqBody)
+	}
+
 	// The request context carries the transports dedicated to the client connection (see service.AddTransportOnContext).
-	forwardReq, err := http.NewRequestWithContext(req.Context(), http.MethodGet, fa.address, nil)
+	forwardReq, err := http.NewRequestWithContext(req.Context(), http.MethodGet, fa.address, authReqBody)
 	tracing.LogRequest(tracing.GetSpan(req), forwardReq)
 	if err != nil {
 		logger.Debugf("Error calling %s. Cause %s", fa.address, err)
