@@ -41,8 +41,8 @@ clean-webui:
 
 webui/static/index.html:
 	$(MAKE) build-webui-image
-	docker run --rm -v "$(PWD)/webui/static":'/src/webui/static' traefik-webui npm run build:nc
-	docker run --rm -v "$(PWD)/webui/static":'/src/webui/static' traefik-webui chown -R $(shell id -u):$(shell id -g) ./static
+	docker run --rm -v "$(PWD)/webui/static":'/src/webui/static':Z traefik-webui npm run build:nc
+	docker run --rm -v "$(PWD)/webui/static":'/src/webui/static':Z traefik-webui chown -R $(shell id -u):$(shell id -g) ./static
 
 .PHONY: generate-webui
 #? generate-webui: Generate WebUI
@@ -102,8 +102,8 @@ test-integration:
 #? test-ui-unit: Run the unit tests for the webui
 test-ui-unit:
 	$(MAKE) build-webui-image
-	docker run --rm -v "$(PWD)/webui/static":'/src/webui/static' traefik-webui yarn --cwd webui install
-	docker run --rm -v "$(PWD)/webui/static":'/src/webui/static' traefik-webui yarn --cwd webui test:unit:ci
+	docker run --rm -v "$(PWD)/webui/static":'/src/webui/static':Z traefik-webui yarn --cwd webui install
+	docker run --rm -v "$(PWD)/webui/static":'/src/webui/static':Z traefik-webui yarn --cwd webui test:unit:ci
 
 .PHONY: pull-images
 #? pull-images: Pull all Docker images to avoid timeout during integration tests
