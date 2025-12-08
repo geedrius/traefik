@@ -176,6 +176,7 @@ http:
         authRequestHeaders:
           - foobar
           - foobar
+        forwardBody: true
     Middleware11:
       headers:
         customRequestHeaders:

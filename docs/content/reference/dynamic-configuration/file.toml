@@ -155,6 +155,7 @@
         authResponseHeaders = ["foobar", "foobar"]
         authResponseHeadersRegex = "foobar"
         authRequestHeaders = ["foobar", "foobar"]
+        forwardBody = true
         [http.middlewares.Middleware10.forwardAuth.tls]
           ca = "foobar"
           caOptional = true
