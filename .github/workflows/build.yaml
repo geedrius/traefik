@@ -58,5 +58,4 @@ jobs:
           GOOS: ${{ matrix.os }}
           GOARCH: ${{ matrix.arch }}
           GOARM: ${{ matrix.goarm }}
-          VERSION: 2.11.32-gm
         run: make binary
