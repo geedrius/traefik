@@ -1,6 +1,7 @@
 name: Build Binaries
 
 on:
+  workflow_dispatch:
   pull_request:
     branches:
       - '*'
@@ -23,29 +24,8 @@ jobs:
 
     strategy:
       matrix:
-        os: [ darwin, freebsd, linux, openbsd, windows ]
+        os: [ linux, windows ]
         arch: [ amd64, arm64 ]
-        include:
-          - os: freebsd
-            arch: 386
-          - os: linux
-            arch: 386
-          - os: linux
-            arch: arm
-            goarm: 6
-          - os: linux
-            arch: arm
-            goarm: 7
-          - os: linux
-            arch: ppc64le
-          - os: linux
-            arch: riscv64
-          - os: linux
-            arch: s390x
-          - os: openbsd
-            arch: 386
-          - os: windows
-            arch: 386
     needs:
       - build-webui
 
@@ -78,4 +58,5 @@ jobs:
           GOOS: ${{ matrix.os }}
           GOARCH: ${{ matrix.arch }}
           GOARM: ${{ matrix.goarm }}
+          VERSION: 2.11.32-gm
         run: make binary
