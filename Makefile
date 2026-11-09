@@ -79,6 +79,13 @@ binary-windows-amd64: export BIN_NAME := traefik.exe
 binary-windows-amd64:
 	@$(MAKE) binary
 
+.PHONY: package
+#? package: Build the binary and pack it with LICENSE.md and CHANGELOG.md into dist/traefik_<VERSION>_<GOOS>_<GOARCH>.tar.gz
+package: binary
+	tar -czf "./dist/traefik_$(VERSION)_$(GOOS)_$(GOARCH).tar.gz" \
+		-C "$(CURDIR)/dist/$(GOOS)/$(GOARCH)" $(BIN_NAME) \
+		-C "$(CURDIR)" LICENSE.md CHANGELOG.md
+
 .PHONY: crossbinary-default
 #? crossbinary-default: Build the binary for the standard platforms (linux, darwin, windows)
 crossbinary-default: generate generate-webui
